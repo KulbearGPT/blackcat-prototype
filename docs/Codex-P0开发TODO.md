@@ -188,7 +188,7 @@ workspace/
   - 禁止扩展：不直接在提交时完成消费；不建可手工编辑 pending 字段。
   - 进度记录（2026-07-17）：已完成 `submitOrder` API、in-memory/Postgres order store 提交事务、Provider hold 预留、timeout-after-commit `getHold(IDEMPOTENCY_KEY)` 恢复、stable reservation id、目录快照复核、Postgres commit-time `user_currency_locks` 锁与 active reservations 重算、Postgres commit-time 目录快照锁读复核、commit 失败后的 `releaseHold` 补偿、`SUBMITTED` event next sequence、成功审计 before/after snapshot、以及 `handlePaymentWebhook` raw octet/json 验签与进程内 event id 去重。提交响应符合 `OrderReservationEnvelope`，不返回订单内部对象、FundReservation 详情或交易列表；提交阶段不创建 debit/consumption。`npx vitest run tests/m1-us-05-api.spec.ts tests/m1-us-05-db.spec.ts tests/m1-us-05-webhook.spec.ts` 17/17 通过，`npm test` 126/126 通过，`npm run typecheck`、`npm run db:validate`、`npm run db:verify:migration` 均通过。证据：`evidence/P0/M1-US-05/summary.md`。Webhook 当前仅验签、拒绝重放、去重和 acknowledgement，真实业务应用与持久 webhook 去重留给后续扣款/退款 Story。
 
-- [ ] **M1-US-06：私密个人服务中心**
+- [x] **M1-US-06：私密个人服务中心**
   - 前置依赖：M1-US-02;M1-US-03;M1-US-04
   - 责任类型：fullstack_bot_api
   - 实现结果：实现服务中心 API 聚合与 Sapphire ephemeral 视图；消费和返佣在 M3 前可返回结构稳定空列表。
@@ -197,8 +197,9 @@ workspace/
   - 验收用例：AT-ACC-004
   - 完成定义：API 契约、归属、空/错/加载状态和 Discord 手工验收通过。
   - 禁止扩展：不做公开主页、完整 BI 或余额缓存账本。
+  - 进度记录（2026-07-17）：已完成 `/api/v1/me/consumptions` 与 `/api/v1/me/commissions` current-user 安全读路由、`consumption.self.read` / `commission.self.read` 自读权限、M3 前结构稳定空消费列表与本人收益零值 summary、Bot API client 对 `/me`、`/me/balance`、`/me/consumptions`、`/me/commissions` 的复用调用、`buildServiceCenterMessage` ephemeral 面板、活跃订单 `getOrder` 跳转摘要、以及 `service-center-buttons` 对“我的服务中心”按钮的 API-backed flow wiring。面板展示 provider balance/reserved/available/currency/fetchedAt，不公开 external user id、source customer、beneficiary id、rate bps 或 referral attribution。`npx vitest run tests/m1-us-06-api.spec.ts tests/m1-us-06-bot.spec.ts` 8/8 通过，`npm run typecheck` 与 `npm test` 18 files / 134 tests 通过。证据：`evidence/P0/M1-US-06/summary.md`。Discord credential 暂未提供，真实测试 Server 手工 E2E 未执行。
 
-- [ ] **M1-US-07：结构化需求与一次完整确认**
+- [x] **M1-US-07：结构化需求与一次完整确认**
   - 前置依赖：M1-US-03;M1-US-06
   - 责任类型：fullstack_bot_api
   - 实现结果：确认面板固定展示 game、service、region、duration、tags、notes、price、available balance、cancellation rule；数据来自 estimateOrder/getCurrentBalance。
@@ -207,6 +208,7 @@ workspace/
   - 验收用例：AT-PL-001;AT-ORD-002
   - 完成定义：API schema、Bot 渲染、缺失/陈旧/余额失败分支和 E2E 通过。
   - 禁止扩展：不增加预约字段、陪玩试音或用户选陪玩。
+  - 进度记录（2026-07-17）：已完成 `OrderEstimateSummary`、`HttpBotApiClient.estimateOrder`、`buildOrderConfirmationMessage`、`handleOpenOrderConfirmation`、`bc:order:{orderId}:submit:v{version}` 安全 custom_id route，以及 `service-center-buttons` 对确认按钮的 API-backed flow wiring。确认面板固定展示游戏、服务、区服、时长、标签、备注、`estimateOrder` 金额、`getCurrentBalance` 可用余额、取消规则和价格有效期；Bot 不使用 draft `amountMinor` 自行定价，也不展示 `playerEarning`、`playerPayout` 或陪玩结算价。余额不足时禁用最终确认并显示差额/充值入口；`CONFLICT` 陈旧版本刷新草稿面板并附 request_id。`npx vitest run tests/m1-us-07-bot.spec.ts` 7/7 通过，`npx vitest run tests/m1-us-04-bot.spec.ts tests/m1-us-06-bot.spec.ts tests/m1-us-07-bot.spec.ts tests/m1-us-03-api.spec.ts` 34/34 通过，`npm run typecheck` 与 `npm test` 19 files / 141 tests 通过。证据：`evidence/P0/M1-US-07/summary.md`。Discord credential 暂未提供，真实测试 Server 手工 E2E 未执行；`submit-final` 最终预留动作留给后续资金/并发 Story 接入。
 
 - [ ] **M1-US-08：资金预留模型与并发控制**
   - 前置依赖：M0-US-02;M0-US-04;M1-US-05
