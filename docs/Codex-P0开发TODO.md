@@ -144,7 +144,7 @@ workspace/
   - 禁止扩展：不做阶梯价、活动价、优惠券或动态定价。
   - 进度记录（2026-07-17）：已完成 `@blackcat/api/catalog` domain contract、in-memory store、PostgreSQL store、统一 API route contract 和运行入口挂载；覆盖 `listServices`、`estimateService`、`listServiceCatalogVersions`、`createServiceCatalogVersion`、`updateServiceCatalogVersion`。用户端仅返回 ACTIVE 且双价格完整目录，不泄露陪玩价/陪玩收益；后台 L2 可读、L3+ 可创建/更新；启用必须客户价和陪玩价完整且币种一致；`SUPERSEDE` 创建新版本并 retire 旧版本，不覆盖旧价格快照；写操作采用 staged commit，PostgreSQL 使用 dedicated pooled transaction client 同事务写目录记录和 `audit_logs`；`PostgresStaffDirectory` 解析 Discord 绑定员工；非 staff Discord actor idempotency scope 按 guild/user 隔离；OpenAPI 指定 path/method 的 operationId 已测试一致。`npx vitest run tests/m1-us-01.spec.ts tests/m1-us-01-api.spec.ts tests/m1-us-01-db.spec.ts` 20/20 通过，`npm test` 69/69 通过，`npm run typecheck`、`npm run db:validate`、`npm run db:verify:migration` 均通过。Final focused code review：Critical none，Important none，Ready to merge。证据：`evidence/P0/M1-US-01/summary.md`。
 
-- [ ] **M1-US-02：一次性绑定与实时账户摘要**
+- [x] **M1-US-02：一次性绑定与实时账户摘要**
   - 前置依赖：M0-US-03;M0-US-04
   - 责任类型：backend_api
   - 实现结果：实现绑定码验证、Discord/第三方账号唯一映射、个人摘要和余额查询；保存映射而非第三方密码。
@@ -153,8 +153,9 @@ workspace/
   - 验收用例：AT-ACC-001;AT-ACC-002;AT-RES-002
   - 完成定义：Provider 契约、归属和隐私测试通过；绑定码及敏感响应不入日志。
   - 禁止扩展：不保存第三方密码，不提供自助解绑或多账号切换。
+  - 进度记录（2026-07-17）：已完成 `@blackcat/api/accounts` domain contract、in-memory store、PostgreSQL store、统一 API route contract 和运行入口挂载；覆盖 `createBinding`、`getCurrentUser`、`getCurrentBalance`。绑定仅接受 Discord Bot 来源和一次性绑定码 `ONE_TIME_CODE`，拒绝稳定 `EXTERNAL_USER_ID`，绑定响应、审计记录和幂等 fingerprint 不包含原始绑定码；Discord 账号和第三方外部账号均有冲突检测，提交阶段并发唯一性冲突映射为 `BINDING_CONFLICT`/409；in-memory 和 PostgreSQL store 均支持绑定与成功审计事务性提交，提交失败或后续唯一性失败会回滚部分记录；`getCurrentUser` 仅返回本人账户摘要且不泄露原始 provider external user id；`getCurrentBalance` 每次从 Provider 查询真实余额并由 API 派生 `availableMinor = providerBalanceMinor - reservedMinor`，`reservedMinor` 只统计 active reservation statuses；OpenAPI path/method operationId 与实现一致，绑定输入枚举已收窄为 `ONE_TIME_CODE`，account runtime error codes 已补入全局错误枚举。`npx vitest run tests/m1-us-02-api.spec.ts` 11/11 通过，`npx vitest run tests/m1-us-02-db.spec.ts` 4/4 通过，`npm test` 84/84 通过，`npm run typecheck`、`npm run db:validate`、`npm run db:verify:migration` 均通过。Focused code review：Critical none；Important 项已修复并补回归。证据：`evidence/P0/M1-US-02/summary.md`。
 
-- [ ] **M1-US-03：即时订单草稿与服务端估价**
+- [x] **M1-US-03：即时订单草稿与服务端估价**
   - 前置依赖：M1-US-01;M1-US-02
   - 责任类型：backend_api
   - 实现结果：实现创建/读取/更新草稿、单活跃订单限制、字段校验、目录版本引用、数量和金额计算、订单版本并发控制。
@@ -163,6 +164,7 @@ workspace/
   - 验收用例：AT-ORD-001;AT-ORD-002
   - 完成定义：状态机、计价、约束和 API 测试通过；订单事件只追加。
   - 禁止扩展：不支持预约、多人订单、多个活跃订单或客户端自报价格。
+  - 进度记录（2026-07-17）：已完成 `@blackcat/api/orders` domain contract、in-memory store、PostgreSQL store、统一 API route contract 和运行入口挂载；覆盖 `createOrder`、`getOrder`、`updateOrder`、`estimateOrder`。`createOrder` 只允许已绑定用户创建即时草稿，单客户仅一个活跃订单，新草稿返回 `201`，已有活跃订单返回 `200` 且不新增事件；`updateOrder` 仅订单所有者、`DRAFT` 状态和匹配 `expectedVersion` 可执行，服务端从 ACTIVE 服务目录快照目录版本、游戏/服务/区服、计价单位、客户价、陪玩结算价并计算 minor-unit 金额，客户端不能自报价格；`estimateOrder` 不改版本、不写事件且不返回 `playerEarningMinor`；订单创建和更新均写 append-only order event 并与 audit 同事务提交。数据库 migration 已收窄 `protect_amount_minor_update()`：普通订单金额覆写仍被 `db:verify:migration` 证明拒绝，只有 API 事务内 `DRAFT -> DRAFT` 并设置 `app.order_draft_amount_update=approved` 才允许草稿估价快照更新。`npx vitest run tests/m1-us-03-api.spec.ts tests/m1-us-03-db.spec.ts` 10/10 通过，`npm test` 94/94 通过，`npm run typecheck`、`npm run db:validate`、`npm run db:verify:migration` 均通过。证据：`evidence/P0/M1-US-03/summary.md`。
 
 - [ ] **M1-US-04：Sapphire 公共入口、私密频道与常驻面板**
   - 前置依赖：M1-US-02;M1-US-03
