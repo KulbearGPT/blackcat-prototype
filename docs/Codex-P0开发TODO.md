@@ -70,7 +70,7 @@ workspace/
 ### 启动门禁
 - [ ] 主规格、结构化合同与验收基线已评审；确认当前仅有规格资料，且工程路径、命令和依赖版本将由本里程碑建立。
 
-- [ ] **M0-US-01：可复现的本地工程与运行骨架**
+- [x] **M0-US-01：可复现的本地工程与运行骨架**
   - 前置依赖：none
   - 责任类型：platform_fullstack
   - 实现结果：建立 TypeScript workspace、API/Bot/Dashboard 进程、Docker Compose、环境变量校验、Sapphire Piece 发现和健康/就绪检查。
@@ -79,8 +79,9 @@ workspace/
   - 验收用例：AT-CHN-001;AT-CHN-002
   - 完成定义：smoke/config 测试和启动文档通过；无密钥入库；代码经评审。
   - 禁止扩展：不提供 Kubernetes、自动扩缩容或多 Server 部署。
+  - 进度记录（2026-07-17）：已建立 TypeScript workspace、`apps/api`、`apps/bot`、`apps/dashboard`、`modules/platform`、`.env.example`、`docker-compose.yml`、M0 smoke/config 测试和证据目录；`npm run m0:verify` 14/14 通过，`npm run typecheck` 通过，API `/health` smoke 通过，`/ready` 已改为使用应用角色登录 PostgreSQL 并检查 baseline schema，`npm run pieces -w @blackcat/bot` 可列出 `service-center` Command 与 `ready` Listener；follow-up code review 通过。证据：`evidence/P0/M0-US-01/summary.md`。真实 Discord credential 未提供，测试 Server E2E 暂按用户要求不阻断。
 
-- [ ] **M0-US-02：P0 数据库基线与不可变记录约束**
+- [x] **M0-US-02：P0 数据库基线与不可变记录约束**
   - 前置依赖：M0-US-01
   - 责任类型：backend_data
   - 实现结果：实现 P0 表、枚举、外键、唯一约束、活跃订单约束、minor units/currency、迁移和种子；预留、收益与返佣调整记录只追加。
@@ -89,6 +90,7 @@ workspace/
   - 验收用例：AT-AUD-003;AT-REC-001;AT-AUD-001
   - 完成定义：空库及前一版本迁移通过；约束集成测试通过；ERD/Schema 与迁移一致。
   - 禁止扩展：不建本地余额账本，不提供财务、审计或订单事件硬删除。
+  - 进度记录（2026-07-17）：已建立 `database` workspace、同步 canonical `database/prisma/schema.prisma`、生成完整空库 baseline migration、同步 `database/seed/seed-data.csv`、新增不可硬删除/保护金额字段策略 helper 和 M0-US-02 合同测试；`npm run m0:verify` 14/14 通过，`npm run db:validate` 通过，`npm run typecheck` 通过，`npm audit --audit-level=moderate` 0 漏洞；本机临时 PostgreSQL 空库 apply 通过，生成 47 张表、3 个抽样关键约束和 7 个抽样 guard triggers，并验证 active slot 伪造、无来源预留、缺少服务开始事件、超额结算、非法预留状态迁移、预留部分结算却进入终态、已激活预留直接 FAILED、审计硬删除、金额覆盖、礼物价格覆盖、Guild 配置事件更新权限和 append-only update 均被拒绝；已补充 P0 首批 trigger guard 名称与实现；follow-up code review 通过。证据：`evidence/P0/M0-US-02/summary.md`。
 
 - [ ] **M0-US-03：统一鉴权、Actor Context、幂等与审计中间件**
   - 前置依赖：M0-US-01;M0-US-02
@@ -99,6 +101,7 @@ workspace/
   - 验收用例：AT-AUTH-001;AT-RBAC-001;AT-AUD-001
   - 完成定义：鉴权、幂等、越权和审计集成测试通过；日志脱敏；所有写端点接入中间件。
   - 禁止扩展：不在 Bot Precondition 或 React 前端复制最终 RBAC。
+  - 进度记录（2026-07-17）：已实现 API 安全中间件、Bot Service Token 校验、可信 Actor Context 解析、累积权限入口、写操作 Idempotency-Key、按 client/operation/actor/key 作用域的原子占位与重复请求回放、冲突检测、成功/拒绝审计和 M0 安全探针路由；`npx vitest run tests/m0-us-03.spec.ts` 8/8 通过，`npm run m0:verify` 22/22 通过，`npm run typecheck`、`npm run db:validate`、`npm run db:verify:migration`、`npm audit --audit-level=moderate` 均通过。证据：`evidence/P0/M0-US-03/summary.md`。未勾选完成原因：code review 正在进行中；真实业务端点接入将在后续 Story 中完成。
 
 - [ ] **M0-US-04：第三方资金适配契约与可控 Mock**
   - 前置依赖：M0-US-02;M0-US-03
