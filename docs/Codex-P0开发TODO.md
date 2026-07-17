@@ -114,7 +114,7 @@ workspace/
   - 禁止扩展：不保留任何旧接口别名；不实现充值页或本地余额。
   - 进度记录（2026-07-17）：已实现 `@blackcat/api/payment-adapter` in-memory mock facade，覆盖 `discoverCapabilities`、`resolveUser`、`getProviderBalance`、`createHold`、`getHold`、`captureHold`、`releaseHold`、`createReservationDebit`、`createRefund`、`getTransaction`、`verifyWebhook` 11 个操作；支持 native/fallback capability profile、providerBalance-only 响应、stable idempotency replay/conflict、hold TTL gate、timeout-after-commit recovery、partial capture/release、native hold capture transaction mirror/refund、modeled reservation binding/version 校验、money/date runtime invariant、insufficient funds、refund cap、webhook signature/timestamp/schema/replay/dedup；`npx vitest run tests/m0-us-04.spec.ts` 9/9 通过，`npm run m0:verify` 38/38 通过，`npm run typecheck`、`npm run db:validate`、`npm run db:verify:migration`、`npm audit --audit-level=moderate` 均通过。证据：`evidence/P0/M0-US-04/summary.md`。首轮 code review 的 Critical/Important 项已修复并补充回归；follow-up code review 通过，Critical none，Important none。
 
-- [ ] **M0-US-05：Outbox/Job 运行器与结构化可观测性**
+- [x] **M0-US-05：Outbox/Job 运行器与结构化可观测性**
   - 前置依赖：M0-US-02;M0-US-03
   - 责任类型：backend_platform
   - 实现结果：实现数据库 Outbox 领取、锁、退避、失败状态、授权手工重试、结构化日志和核心指标钩子。
@@ -123,17 +123,17 @@ workspace/
   - 验收用例：AT-CHN-003;AT-AUD-003
   - 完成定义：并发领取、退避、失败和恢复测试通过；失败 Job 可受权重试并留审计。
   - 禁止扩展：不引入 Redis/BullMQ，不承诺无限重试或复杂 SLA。
-  - 进度记录（2026-07-17）：已实现 `@blackcat/api/outbox` 的 Outbox store/runner contract、in-memory store、worker lock claim、attempt/version 增量、backoff、terminal failed、success completion、structured logs、metrics hooks 和 `retryJob` 授权手工重试审计；`npx vitest run tests/m0-us-05.spec.ts` 4/4 通过，`npm run m0:verify` 42/42 通过，`npm run typecheck`、`npm run db:validate`、`npm run db:verify:migration`、`npm audit --audit-level=moderate` 均通过。证据：`evidence/P0/M0-US-05/summary.md`。未勾选完成原因：code review 正在进行中。
+  - 进度记录（2026-07-17）：已实现 `@blackcat/api/outbox` 的 Outbox store/runner contract、in-memory store、PostgreSQL `outbox_events` claim/lock 合同（`FOR UPDATE SKIP LOCKED`）、SQL 层 delivery/system job type allowlist、stale `PROCESSING` recovery、delivery/system job type validation、worker lock claim、attempt/version 增量、按失败时间 backoff、terminal failed、`PROCESSING/COMPLETED` 状态统一、success completion、`request_id` structured logs、metrics hooks 和 `retryJob` 授权手工重试审计；`retryJob` 保留 failed job 上下文并在审计 before/after snapshot 中记录 attempts/lastError/runAfter/version；`job.read/job.retry` 已进入统一权限矩阵并与 OpenAPI L2 要求对齐；OpenAPI JobStatus 已与 Prisma 对齐；PostgreSQL enum 参数 cast 已补合同测试；`npx vitest run tests/m0-us-05.spec.ts` 9/9 通过，`npm run m0:verify` 49/49 通过，`npm run typecheck`、`npm run db:validate`、`npm run db:verify:migration`、`npm audit --audit-level=moderate` 均通过；final narrow code review 返回 Critical none、Important none、Minor none、gate-ready。证据：`evidence/P0/M0-US-05/summary.md`。
 
 ### 完成门禁
-- [ ] 五个 M0 Story 的完成定义全部满足；本地启动、健康/就绪、鉴权、Provider Mock、迁移和 Job 恢复证据可复验。
+- [x] 五个 M0 Story 的完成定义全部满足；本地启动、健康/就绪、鉴权、Provider Mock、迁移和 Job 恢复证据可复验。证据：`evidence/P0/gates/M0.md`。
 
 ## M1：目录、账户与即时订单入口
 
 ### 启动门禁
-- [ ] M0 完成门禁已有证据；统一 API、数据约束、鉴权、Provider Mock 与 Outbox 可用于实现用户入口。
+- [x] M0 完成门禁已有证据；统一 API、数据约束、鉴权、Provider Mock 与 Outbox 可用于实现用户入口。证据：`evidence/P0/gates/M0.md`。
 
-- [ ] **M1-US-01：版本化服务目录与双价格快照**
+- [x] **M1-US-01：版本化服务目录与双价格快照**
   - 前置依赖：M0-US-02;M0-US-03
   - 责任类型：backend_api
   - 实现结果：实现启用服务查询、后台版本 API、计价单位、最低数量、客户单价、陪玩结算单价、币种和上下架约束。
@@ -142,6 +142,7 @@ workspace/
   - 验收用例：AT-CAT-001;AT-CAT-002
   - 完成定义：单元、数据库集成和 API 契约测试通过；OpenAPI operationId 一致。
   - 禁止扩展：不做阶梯价、活动价、优惠券或动态定价。
+  - 进度记录（2026-07-17）：已完成 `@blackcat/api/catalog` domain contract、in-memory store、PostgreSQL store、统一 API route contract 和运行入口挂载；覆盖 `listServices`、`estimateService`、`listServiceCatalogVersions`、`createServiceCatalogVersion`、`updateServiceCatalogVersion`。用户端仅返回 ACTIVE 且双价格完整目录，不泄露陪玩价/陪玩收益；后台 L2 可读、L3+ 可创建/更新；启用必须客户价和陪玩价完整且币种一致；`SUPERSEDE` 创建新版本并 retire 旧版本，不覆盖旧价格快照；写操作采用 staged commit，PostgreSQL 使用 dedicated pooled transaction client 同事务写目录记录和 `audit_logs`；`PostgresStaffDirectory` 解析 Discord 绑定员工；非 staff Discord actor idempotency scope 按 guild/user 隔离；OpenAPI 指定 path/method 的 operationId 已测试一致。`npx vitest run tests/m1-us-01.spec.ts tests/m1-us-01-api.spec.ts tests/m1-us-01-db.spec.ts` 20/20 通过，`npm test` 69/69 通过，`npm run typecheck`、`npm run db:validate`、`npm run db:verify:migration` 均通过。Final focused code review：Critical none，Important none，Ready to merge。证据：`evidence/P0/M1-US-01/summary.md`。
 
 - [ ] **M1-US-02：一次性绑定与实时账户摘要**
   - 前置依赖：M0-US-03;M0-US-04

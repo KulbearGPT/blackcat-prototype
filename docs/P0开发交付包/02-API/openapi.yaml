@@ -5602,7 +5602,7 @@ components:
       enum: [GIFT_ANNOUNCEMENT, DISPATCH_MESSAGE, DISPATCH_TIMEOUT, CHANNEL_ARCHIVE, PANEL_SYNC, ROLE_RECONCILIATION]
     JobStatus:
       type: string
-      enum: [PENDING, RUNNING, SUCCEEDED, FAILED, CANCELLED]
+      enum: [PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED]
     PageCursor:
       type: [string, 'null']
       maxLength: 500
