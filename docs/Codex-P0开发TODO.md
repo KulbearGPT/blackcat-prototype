@@ -166,7 +166,7 @@ workspace/
   - 禁止扩展：不支持预约、多人订单、多个活跃订单或客户端自报价格。
   - 进度记录（2026-07-17）：已完成 `@blackcat/api/orders` domain contract、in-memory store、PostgreSQL store、统一 API route contract 和运行入口挂载；覆盖 `createOrder`、`getOrder`、`updateOrder`、`estimateOrder`。`createOrder` 只允许已绑定用户创建即时草稿，单客户仅一个活跃订单，新草稿返回 `201`，已有活跃订单返回 `200` 且不新增事件；`updateOrder` 仅订单所有者、`DRAFT` 状态和匹配 `expectedVersion` 可执行，服务端从 ACTIVE 服务目录快照目录版本、游戏/服务/区服、计价单位、客户价、陪玩结算价并计算 minor-unit 金额，客户端不能自报价格；`estimateOrder` 不改版本、不写事件且不返回 `playerEarningMinor`；订单创建和更新均写 append-only order event 并与 audit 同事务提交。数据库 migration 已收窄 `protect_amount_minor_update()`：普通订单金额覆写仍被 `db:verify:migration` 证明拒绝，只有 API 事务内 `DRAFT -> DRAFT` 并设置 `app.order_draft_amount_update=approved` 才允许草稿估价快照更新。`npx vitest run tests/m1-us-03-api.spec.ts tests/m1-us-03-db.spec.ts` 10/10 通过，`npm test` 94/94 通过，`npm run typecheck`、`npm run db:validate`、`npm run db:verify:migration` 均通过。证据：`evidence/P0/M1-US-03/summary.md`。
 
-- [ ] **M1-US-04：Sapphire 公共入口、私密频道与常驻面板**
+- [x] **M1-US-04：Sapphire 公共入口、私密频道与常驻面板**
   - 前置依赖：M1-US-02;M1-US-03
   - 责任类型：discord_bot
   - 实现结果：实现固定公共入口、绑定 Modal、消息组件完成结构化选择、补充备注 Modal、订单频道创建/补偿、权限覆盖、面板渲染和更新、custom_id 路由及重复交互处理。
@@ -175,6 +175,7 @@ workspace/
   - 验收用例：AT-CHN-001;AT-ORD-003;AT-UI-001;AT-UI-002;AT-UI-003
   - 完成定义：InteractionHandler、组件约束、权限渲染和 API 错误映射测试通过；测试 Server E2E 留证。
   - 禁止扩展：不把价格、状态机、资金或最终权限规则写入 Sapphire Piece；不在打开的 Modal 内实现级联选择。
+  - 进度记录（2026-07-17）：已完成 `@blackcat/bot/service-center`、`HttpBotApiClient`、Discord UI spec renderer、`/service-center` 公共入口回复、`service-center-buttons` / `order-selects` / `service-center-modals` 三个 Sapphire interaction-handler piece。覆盖公共入口只展示 `创建订单` 和 `我的服务中心` 且不公开余额；绑定 Modal 单个一次性绑定码 Text Input；备注 Modal 单个可选 Text Input 并携带订单版本；私密频道权限计划拒绝 `@everyone`，允许客户/Bot/客服 role，陪玩接单前不可见；订单面板用消息 String Select 完成游戏/服务/区服/时长选择，不在打开的 Modal 内级联，不泄露陪玩结算或余额；custom_id parser 只承载安全路由元数据；Bot flow 只通过统一 API client 调用 `createBinding`、`createOrder`、`getOrder`、`updateOrder`，并携带 Bot token、Discord Actor Context、interaction id 和 idempotency key。`npx vitest run tests/m1-us-04-bot.spec.ts` 15/15 通过，`npm run typecheck -w @blackcat/bot`、`npm run typecheck`、`npm run pieces -w @blackcat/bot`、`npm test` 109/109 通过。Discord credential 暂未提供，真实测试 Server E2E 未执行；AT-ORD-003 的完整资金预留重复提交仍属于 M1-US-05 `submitOrder` API。证据：`evidence/P0/M1-US-04/summary.md`。
 
 - [ ] **M1-US-05：订单提交与资金预留**
   - 前置依赖：M0-US-04;M1-US-03;M0-US-05
