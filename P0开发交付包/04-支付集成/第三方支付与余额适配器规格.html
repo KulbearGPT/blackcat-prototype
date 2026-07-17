@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>第三方支付与余额适配器规格 | Prototype P0</title>
+  <style>
+    :root {
+      --ink: #17211d;
+      --muted: #5d6963;
+      --line: #d7ddd9;
+      --paper: #ffffff;
+      --soft: #f4f6f5;
+      --green: #16734a;
+      --green-soft: #e9f5ef;
+      --amber: #9a5a08;
+      --amber-soft: #fff5df;
+      --red: #a13a31;
+      --red-soft: #fff0ee;
+      --blue: #285f8f;
+      --blue-soft: #edf5fc;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #eef1ef;
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.72;
+      letter-spacing: 0;
+    }
+    a { color: var(--blue); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    code { padding: 0.1em 0.35em; background: #eef2f0; border-radius: 3px; font-size: 0.92em; overflow-wrap: anywhere; word-break: break-word; }
+    .page {
+      width: min(1180px, calc(100% - 32px));
+      margin: 28px auto 56px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      box-shadow: 0 14px 40px rgba(18, 35, 26, 0.08);
+    }
+    header {
+      padding: 54px 64px 44px;
+      color: white;
+      background: #18392d;
+      border-bottom: 5px solid #d5a340;
+    }
+    header .eyebrow { margin: 0 0 12px; color: #cfe7dc; font-weight: 700; font-size: 13px; }
+    h1 { margin: 0; max-width: 900px; font-size: 38px; line-height: 1.18; letter-spacing: 0; }
+    header .subtitle { margin: 18px 0 0; max-width: 940px; color: #e7f1ec; font-size: 17px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+    .meta span { padding: 5px 9px; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; font-size: 12px; }
+    .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); }
+    nav { padding: 30px 24px; background: var(--soft); border-right: 1px solid var(--line); }
+    nav strong { display: block; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
+    nav a { display: block; padding: 6px 0; color: #33423b; text-decoration: none; font-size: 13px; }
+    nav a:hover { color: var(--green); text-decoration: underline; }
+    main { min-width: 0; padding: 38px 52px 64px; }
+    section { padding: 8px 0 34px; border-bottom: 1px solid var(--line); }
+    section:last-child { border-bottom: 0; }
+    h2 { margin: 22px 0 16px; font-size: 25px; line-height: 1.25; letter-spacing: 0; }
+    h3 { margin: 26px 0 10px; font-size: 18px; line-height: 1.35; letter-spacing: 0; }
+    h4 { margin: 0 0 6px; font-size: 15px; }
+    p { margin: 8px 0 14px; }
+    p, li, td { overflow-wrap: anywhere; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 5px 0; }
+    .lead { color: #34423c; font-size: 16px; }
+    .callout { margin: 18px 0; padding: 14px 16px; border-left: 4px solid var(--green); background: var(--green-soft); }
+    .callout.warn { border-color: var(--amber); background: var(--amber-soft); }
+    .callout.danger { border-color: var(--red); background: var(--red-soft); }
+    .callout.info { border-color: var(--blue); background: var(--blue-soft); }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 18px 0; }
+    .box { padding: 16px; border: 1px solid var(--line); border-radius: 6px; background: #fbfcfb; }
+    .box p { margin: 0; color: #3f4d46; }
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; min-width: 700px; }
+    th, td { padding: 10px 11px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: #edf1ef; font-size: 13px; }
+    td { font-size: 13px; }
+    pre { overflow-x: auto; margin: 16px 0; padding: 18px; border: 1px solid #cfd8d3; background: #f7f9f8; font-size: 12px; line-height: 1.65; }
+    .flow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+    .flow span { padding: 7px 9px; border: 1px solid #c9d6cf; border-radius: 4px; background: #f7faf8; font-size: 13px; }
+    .flow b { color: var(--green); }
+    .status { display: inline-block; min-width: 84px; padding: 2px 7px; border-radius: 3px; text-align: center; font-weight: 700; font-size: 11px; }
+    .unknown { color: #555; background: #ececec; }
+    .pending { color: var(--amber); background: var(--amber-soft); }
+    .active, .succeeded { color: var(--green); background: var(--green-soft); }
+    .terminal { color: var(--blue); background: var(--blue-soft); }
+    .failed { color: var(--red); background: var(--red-soft); }
+    .checklist { list-style: none; padding-left: 0; }
+    .checklist li { position: relative; padding-left: 25px; }
+    .checklist li::before { content: "□"; position: absolute; left: 0; color: var(--green); font-weight: 700; }
+    footer { padding: 24px 52px; color: #526159; background: var(--soft); border-top: 1px solid var(--line); font-size: 12px; }
+    @media (max-width: 860px) {
+      .page { width: 100%; margin: 0; border: 0; }
+      header { padding: 38px 24px 32px; }
+      h1 { font-size: 30px; }
+      .layout { display: block; }
+      nav { display: none; }
+      main { padding: 26px 24px 48px; }
+      .grid { grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: white; font-size: 11pt; }
+      .page { width: 100%; margin: 0; border: 0; box-shadow: none; }
+      header { padding: 28px 36px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      nav { display: none; }
+      .layout { display: block; }
+      main { padding: 24px 36px; }
+      table, .box, .callout, pre { break-inside: avoid; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <p class="eyebrow">P0 开发交付包 / 04 支付集成</p>
+      <h1>第三方支付与余额适配器规格</h1>
+      <p class="subtitle">以供应商原生 hold 为首选、以经批准的本地 FundReservation 为回退，统一定义能力发现、预留、捕获、释放、退款、过期、对账与 Webhook 边界。</p>
+      <div class="meta">
+        <span>版本 1.2 Prototype</span>
+        <span>默认币种 CNY</span>
+        <span>金额统一 Minor Units</span>
+        <span>供应商能力需证据启用</span>
+        <span>2026-07-16</span>
+      </div>
+    </header>
+
+    <div class="layout">
+      <nav aria-label="文档目录">
+        <strong>目录</strong>
+        <a href="#position">1. 定位与边界</a>
+        <a href="#decision">2. 能力发现与模式选择</a>
+        <a href="#architecture">3. 责任与架构</a>
+        <a href="#interface">4. 稳定接口</a>
+        <a href="#balance">5. 余额与预留语义</a>
+        <a href="#lifecycle">6. FundReservation 生命周期</a>
+        <a href="#business">7. 订单与礼物映射</a>
+        <a href="#fallback">8. 本地回退防线</a>
+        <a href="#expiry">9. 过期、幂等与超时</a>
+        <a href="#webhook">10. 状态与 Webhook</a>
+        <a href="#reconciliation">11. 对账与余额缺口</a>
+        <a href="#errors">12. 错误对齐</a>
+        <a href="#security">13. 权限与安全</a>
+        <a href="#mock">14. Mock 与契约测试</a>
+        <a href="#onboarding">15. 接入与验收</a>
+      </nav>
+
+      <main>
+        <section id="position">
+          <h2>1. 定位与边界</h2>
+          <p class="lead">本文件是计划中的 P0 开发契约，不表示真实供应商已经接通。Sapphire Bot 与 Dashboard 只调用统一业务 API；第三方资金能力只能由 API 内部的 Payment Adapter 使用。</p>
+          <div class="callout"><strong>核心规则：</strong>第三方继续负责用户账户事实、充值、支付、退款和真实余额；自有系统负责订单、FundReservation、消费、返佣、陪玩收益、权限、审计与运营视图。</div>
+          <div class="grid">
+            <div class="box"><h4>第三方事实</h4><p>外部用户、<code>providerBalanceMinor</code>、原生 hold、实际 debit、refund 与供应商状态。</p></div>
+            <div class="box"><h4>业务事实</h4><p>FundReservation、<code>reservedMinor</code>、<code>availableMinor</code>、订单/礼物状态、消费与后续结算。</p></div>
+            <div class="box"><h4>适配器职责</h4><p>能力发现、协议映射、认证、签名、超时、状态规范化、查询恢复和 Webhook 验证。</p></div>
+            <div class="box"><h4>P0 不包含</h4><p>不自建钱包，不做汇率换算，不加入预约排期，也不加入陪玩试音或用户选陪玩。</p></div>
+          </div>
+          <p>机器可读接口、状态、Mock 和测试 ID 以 <a href="adapter-contract.yaml">adapter-contract.yaml</a> 为准。</p>
+        </section>
+
+        <section id="decision">
+          <h2>2. 能力发现与模式选择</h2>
+          <p><code>discoverCapabilities</code> 返回观察到的能力，不能自行开启生产路径。L4 批准的版本化集成配置依据正式文档、沙箱结果和接入清单，在两种模式中选择一种。</p>
+          <div class="table-wrap"><table>
+            <thead><tr><th>模式</th><th>启用条件</th><th>预留事实</th><th>捕获动作</th></tr></thead>
+            <tbody>
+              <tr><td><code>PROVIDER_NATIVE_HOLD</code></td><td>create/capture/release/get、写幂等、按键查询和可用 TTL 全部有阻断证据。</td><td>本地 FundReservation 镜像供应商 hold，并保存 provider hold ref 与有效期。</td><td>完成或批准时调用 <code>captureHold</code>。</td></tr>
+              <tr><td><code>LOCAL_RESERVATION_FALLBACK</code></td><td>原生 hold 不完整或 TTL 不足；回退 debit 与查询能力已证明，并经 L4 明确批准。</td><td>FundReservation 是本地并发控制事实，不声称第三方已冻结资金。</td><td>完成或批准时复查余额后调用 <code>createReservationDebit</code>。</td></tr>
+            </tbody>
+          </table></div>
+          <ul>
+            <li>每个 FundReservation 创建时快照 funding mode；生命周期内不得在两种模式之间切换。</li>
+            <li>供应商能力降级时停止新预留并告警；已存在预留沿原模式查询、释放或人工处置。</li>
+            <li>若原生 hold 的最大 TTL 不能覆盖配置的业务窗口与安全余量，创建预留前就选择本地回退；不得等 hold 过期后偷偷改成 debit。</li>
+          </ul>
+        </section>
+
+        <section id="architecture">
+          <h2>3. 责任与架构</h2>
+          <pre>Discord 用户 / 工作人员                  Dashboard 工作人员
+          │                                      │
+          └──────────── 统一业务 API ────────────┘
+                              │
+       RBAC / 审批 / FundReservation / 版本 / 幂等 / 审计
+                              │
+                       Payment Adapter
+       discover / balance / hold / debit / refund / webhook
+                              │
+                              ▼
+                    第三方用户与资金系统</pre>
+          <div class="table-wrap"><table>
+            <thead><tr><th>组件</th><th>允许</th><th>禁止</th></tr></thead>
+            <tbody>
+              <tr><td>Bot / Dashboard</td><td>显示 API 返回的余额摘要、预留状态、有效期与可执行动作。</td><td>直接查第三方、计算资金规则、保存密钥或调用 hold/debit/refund。</td></tr>
+              <tr><td>统一业务 API</td><td>锁定 FundReservation、校验版本、计算余额摘要、选择已批准模式并编排业务状态。</td><td>把 provider balance 直接称为 available，或绕过预留直接扣 ORDER/GIFT。</td></tr>
+              <tr><td>Payment Adapter</td><td>隔离供应商差异并返回规范化能力、余额、hold、交易与事件。</td><td>决定订单、礼物、readiness、返佣或四级权限。</td></tr>
+              <tr><td>PostgreSQL</td><td>保存 FundReservation、外部动作镜像、attempt、Webhook、对账与审计。</td><td>把第三方余额保存为可人工编辑的钱包字段，或硬删除财务记录。</td></tr>
+            </tbody>
+          </table></div>
+        </section>
+
+        <section id="interface">
+          <h2>4. 稳定接口</h2>
+          <pre>interface PaymentProviderAdapter {
+  discoverCapabilities(): Promise&lt;ProviderCapabilities&gt;;
+  resolveUser(input: ResolveUserInput): Promise&lt;ResolvedUser&gt;;
+  getProviderBalance(externalUserId: string): Promise&lt;ProviderBalanceSnapshot&gt;;
+  createHold(input: CreateHoldInput): Promise&lt;Hold&gt;;
+  captureHold(input: CaptureHoldInput): Promise&lt;Hold&gt;;
+  releaseHold(input: ReleaseHoldInput): Promise&lt;Hold&gt;;
+  getHold(input: HoldLookup): Promise&lt;Hold&gt;;
+  createReservationDebit(input: ReservationDebitInput): Promise&lt;Transaction&gt;;
+  createRefund(input: RefundInput): Promise&lt;Transaction&gt;;
+  getTransaction(input: TransactionLookup): Promise&lt;Transaction&gt;;
+  verifyWebhook(input: RawWebhookEnvelope): Promise&lt;ProviderEvent&gt;;
+}</pre>
+          <div class="table-wrap"><table>
+            <thead><tr><th>操作</th><th>用途</th><th>关键约束</th></tr></thead>
+            <tbody>
+              <tr><td><code>discoverCapabilities</code></td><td>返回 native hold、fallback debit、refund、Webhook 与 TTL 能力。</td><td>只报告能力，不替代接入批准。</td></tr>
+              <tr><td><code>resolveUser</code></td><td>解析外部用户绑定。</td><td>一次性凭证用后即弃，不进日志。</td></tr>
+              <tr><td><code>getProviderBalance</code></td><td>返回供应商余额快照。</td><td>字段是 <code>providerBalanceMinor</code>，不是 available；reserved/available 由业务 API 计算。</td></tr>
+              <tr><td><code>createHold</code></td><td>原生模式创建 hold。</td><td>需要 FundReservation 绑定、版本、业务来源、业务 UUID 与 expiresAt。</td></tr>
+              <tr><td><code>captureHold</code></td><td>捕获全部或部分 hold。</td><td>只用于订单完成、礼物批准或批准的部分结案。</td></tr>
+              <tr><td><code>releaseHold</code></td><td>释放全部或剩余 hold。</td><td>捕获前取消/拒绝/撤回/失败/过期使用 release，不使用 refund。</td></tr>
+              <tr><td><code>getHold</code></td><td>按 hold ref 或幂等键查询。</td><td>处理超时、PENDING、UNKNOWN、重启与回调补偿。</td></tr>
+              <tr><td><code>createReservationDebit</code></td><td>本地回退模式捕获预留。</td><td><code>fundReservationId</code> 与 <code>fundReservationVersion</code> 都必填。</td></tr>
+              <tr><td><code>createRefund</code></td><td>捕获后的全额或部分退款。</td><td>成功及未决退款累计不超已捕获金额。</td></tr>
+              <tr><td><code>getTransaction</code></td><td>查询 fallback debit 或 refund。</td><td>写超时后先查，不生成新键。</td></tr>
+              <tr><td><code>verifyWebhook</code></td><td>验签并规范化 hold/debit/refund 事件。</td><td>针对原始 bytes 先验签再解析。</td></tr>
+            </tbody>
+          </table></div>
+        </section>
+
+        <section id="balance">
+          <h2>5. 余额与预留语义</h2>
+          <div class="callout info"><strong>唯一命名：</strong>适配器输出 <code>providerBalanceMinor</code>。统一业务 API 的用户余额响应固定为 <code>providerBalanceMinor</code>、<code>reservedMinor</code>、<code>availableMinor</code>、<code>currency</code>、<code>fetchedAt</code>。</div>
+          <pre>reservedMinor  = Σ 当前有效 FundReservation.amountMinor
+availableMinor = providerBalanceMinor - reservedMinor</pre>
+          <ul>
+            <li><code>reservedMinor</code> 是有效记录合计，不是可手工编辑的字段。</li>
+            <li><code>availableMinor</code> 由业务 API 计算；不得把第三方字段直接透传并改名为 available。</li>
+            <li>本地回退时，第三方站外消费可能令 <code>availableMinor</code> 为负。API 保留该有符号结果，阻止新预留并触发缺口告警。</li>
+            <li>用户提交前看到的余额摘要是判断依据，不是对稍后捕获成功的供应商承诺。</li>
+          </ul>
+        </section>
+
+        <section id="lifecycle">
+          <h2>6. FundReservation 生命周期</h2>
+          <div class="table-wrap"><table>
+            <thead><tr><th>阶段</th><th>原生 hold</th><th>本地回退</th><th>共同业务规则</th></tr></thead>
+            <tbody>
+              <tr><td>创建</td><td>创建本地记录并以固定键调用 <code>createHold</code>。</td><td>锁用户资金域，读取新鲜余额并原子创建本地记录。</td><td>绑定唯一 ORDER 或 GIFT、幂等键、mode、expiresAt 与 version。</td></tr>
+              <tr><td>有效</td><td>供应商状态 ACTIVE，本地镜像持续对账。</td><td>本地记录占用 <code>reservedMinor</code>，第三方并未冻结。</td><td>重复请求返回同一记录；不得另建第二预留。</td></tr>
+              <tr><td>捕获</td><td><code>captureHold</code> 成功后写消费事实。</td><td>锁记录、校验 version、复查余额，再 <code>createReservationDebit</code>。</td><td>PENDING/UNKNOWN 锁住业务终态并进入对账。</td></tr>
+              <tr><td>释放</td><td><code>releaseHold</code> 成功或确认已过期后释放。</td><td>本地事务更新 RELEASED 并递增 version，无第三方 release。</td><td>捕获前取消、拒绝、撤回、失败和过期走此路径。</td></tr>
+              <tr><td>退款</td><td colspan="2">已捕获金额只能通过 <code>createRefund</code> 冲正；原捕获、消费、返佣和收益记录不覆盖不删除。</td><td>退款与 Adjustment 只追加。</td></tr>
+            </tbody>
+          </table></div>
+          <p>部分结案先捕获批准金额，再释放剩余金额；两者使用不同的稳定幂等键。每个 Hold 响应必须返回 <code>capturedAmount</code>、<code>releasedAmount</code> 与 <code>remainingAmount</code>，三者合计等于原预留。</p>
+        </section>
+
+        <section id="business">
+          <h2>7. 订单与礼物映射</h2>
+          <h3>7.1 订单</h3>
+          <div class="flow"><span>确认提交</span><b>→</b><span>创建预留</span><b>→</b><span>派单/接单</span><b>→</b><span>用户与陪玩分别就绪</span><b>→</b><span>IN_SERVICE</span><b>→</b><span>完成时捕获</span></div>
+          <ul>
+            <li>订单在用户确认提交时 reserve，不等待服务开始。</li>
+            <li>订单从 <code>ACCEPTED</code> 只有在用户与陪玩双方都 readiness 后才进入 <code>IN_SERVICE</code>；readiness 不触发 capture。</li>
+            <li>订单完成时 capture。捕获成功后才创建消费、陪玩收益与适用的返佣事实。</li>
+            <li>捕获前取消、无人接单、拒绝或失败 release；捕获后取消或争议按批准金额 refund。</li>
+          </ul>
+          <h3>7.2 礼物</h3>
+          <div class="flow"><span>创建请求</span><b>→</b><span>立即预留</span><b>→</b><span>L1 核对</span><b>→</b><span>按金额审批</span><b>→</b><span>批准时捕获</span><b>→</b><span>Outbox 播报</span></div>
+          <ul>
+            <li>礼物在用户创建请求时 reserve，不能等客服批准后再抢余额。</li>
+            <li>客服核对礼物品类、目标和真实意愿，不人工计算余额；API 捕获已有预留。</li>
+            <li>拒绝、过期或撤回在捕获前 release；捕获后纠错使用 refund。</li>
+            <li>播报失败只重试 Outbox，不重复 capture 或 debit。</li>
+          </ul>
+          <div class="callout"><strong>捕获后的业务事实：</strong><code>PROMOTER_FIRST_PURCHASE</code> 与 <code>PLAYER_LIFETIME</code> 只能依据成功消费事实结算；退款或结案用追加 Adjustment 冲正。</div>
+        </section>
+
+        <section id="fallback">
+          <h2>8. 本地回退防线</h2>
+          <ol>
+            <li>业务动作锁定目标 FundReservation，并确认 mode 为 <code>LOCAL_RESERVATION_FALLBACK</code>。</li>
+            <li>以 <code>id + expected version</code> 原子更新；传入 <code>fundReservationVersion</code> 与当前版本不符时返回 <code>RESERVATION_CONFLICT</code>。</li>
+            <li>调用 <code>getProviderBalance</code> 取得新鲜 <code>providerBalanceMinor</code>，在同一用户资金串行区重新计算 <code>reservedMinor</code> 与 <code>availableMinor</code>。</li>
+            <li>确认预留有效、未过期、金额和币种匹配且没有 provider balance deficit。</li>
+            <li>仅此时调用 <code>createReservationDebit</code>，请求必须携带 <code>fundReservationId</code> 与 <code>fundReservationVersion</code>。</li>
+          </ol>
+          <div class="callout danger"><strong>阻断规则：</strong>不存在接收裸 <code>ORDER</code> 或 <code>GIFT</code> 的直接 debit API。缺少任一 reservation 字段返回 <code>VALIDATION_ERROR</code>；版本过期或生命周期冲突返回 <code>RESERVATION_CONFLICT</code>；调用供应商之前即失败。</div>
+          <p>所有 Bot、Dashboard、内部 Job 与人工结案资金入口都必须经过同一业务 API。任何绕过 FundReservation 的 ORDER/GIFT debit 都是 P0 阻断缺陷。</p>
+        </section>
+
+        <section id="expiry">
+          <h2>9. 过期、幂等与超时</h2>
+          <h3>9.1 过期</h3>
+          <ul>
+            <li>原生模式的业务 <code>expiresAt</code> 默认早于供应商到期 60 秒；最终值以经证据批准的配置为准。</li>
+            <li>本地回退由业务 API 的过期 Worker 原子标记 RELEASED 并递增 version。</li>
+            <li>捕获前必须同时确认本地预留未过期；原生模式还必须确认 provider hold ACTIVE。</li>
+            <li><code>HOLD_EXPIRED</code> 只应用一次，阻止 capture；不得补发 fallback debit。</li>
+          </ul>
+          <h3>9.2 幂等键</h3>
+          <pre>hold:order:{orderId}:v1
+hold:gift:{giftRequestId}:v1
+capture:hold:{fundReservationId}:v{fundReservationVersion}
+release:hold:{fundReservationId}:v{fundReservationVersion}
+debit:reservation:{fundReservationId}:v{fundReservationVersion}
+refund:{originalTransactionId}:{resolutionId}:v1</pre>
+          <p>同键同指纹返回原结果；同键不同指纹返回 <code>IDEMPOTENCY_CONFLICT</code>。所有写操作 0 次盲重试；超时标为 UNKNOWN，并按原 provider ref 或原幂等键调用 <code>getHold</code>/<code>getTransaction</code>。</p>
+        </section>
+
+        <section id="webhook">
+          <h2>10. 状态与 Webhook</h2>
+          <h3>10.1 Hold 状态</h3>
+          <div class="table-wrap"><table>
+            <thead><tr><th>状态</th><th>含义</th><th>动作</th></tr></thead>
+            <tbody>
+              <tr><td><span class="status unknown">UNKNOWN</span></td><td>写结果无法确认。</td><td>锁住意图并 getHold。</td></tr>
+              <tr><td><span class="status pending">PENDING</span></td><td>供应商已受理但未 ACTIVE。</td><td>不推进派单或礼物任务到已预留终态。</td></tr>
+              <tr><td><span class="status active">ACTIVE</span></td><td>hold 有效并可捕获或释放。</td><td>保持对账直到终态。</td></tr>
+              <tr><td><span class="status active">PARTIALLY_CAPTURED</span></td><td>已捕获部分，仍有余额。</td><td>按决议捕获或释放剩余。</td></tr>
+              <tr><td><span class="status terminal">CAPTURED</span></td><td>全部捕获。</td><td>写消费事实；后续逆向用 refund。</td></tr>
+              <tr><td><span class="status terminal">RELEASED</span></td><td>剩余金额已释放。</td><td>不得再次捕获。</td></tr>
+              <tr><td><span class="status failed">EXPIRED / FAILED</span></td><td>不可捕获。</td><td>业务异常或释放，不改走直接 debit。</td></tr>
+            </tbody>
+          </table></div>
+          <h3>10.2 事件与顺序</h3>
+          <p>Hold 事件固定为 <code>HOLD_CREATED</code>、<code>HOLD_UPDATED</code>、<code>HOLD_CAPTURED</code>、<code>HOLD_RELEASED</code>、<code>HOLD_EXPIRED</code>；交易事件为 <code>DEBIT_UPDATED</code>、<code>REFUND_UPDATED</code>，交易状态保持 <code>UNKNOWN/PENDING/SUCCEEDED/FAILED</code>。</p>
+          <ol>
+            <li>按原始 bytes 验签、校验时间窗，再解析和规范化。</li>
+            <li>以 <code>(provider, eventId)</code> 去重；重复事件返回 2xx，不重复应用。</li>
+            <li>优先使用 provider sequence；否则使用 occurredAt 与终态优先级。</li>
+            <li>CAPTURED/RELEASED/EXPIRED 或 SUCCEEDED/FAILED 不被迟到旧状态降级；终态冲突保留首个可信终态并立即告警。</li>
+            <li>找不到本地引用时隔离事件，不创建无归属的 FundReservation 或财务记录。</li>
+          </ol>
+        </section>
+
+        <section id="reconciliation">
+          <h2>11. 对账与余额缺口</h2>
+          <div class="flow"><span>15 秒</span><b>→</b><span>60 秒</span><b>→</b><span>5 分钟</span><b>→</b><span>15 分钟</span><b>→</b><span>30 分钟人工任务</span></div>
+          <ul>
+            <li>原生 hold 的 UNKNOWN/PENDING/ACTIVE/PARTIALLY_CAPTURED 使用 <code>getHold</code> 对账；fallback debit 与 refund 的 UNKNOWN/PENDING 使用 <code>getTransaction</code>。</li>
+            <li>超过窗口仍无法确认时创建 <code>AUTOMATION_FAILURE</code> 客服任务，reason code 为 <code>PAYMENT_REVIEW</code>；不新增资金意图。</li>
+            <li>Webhook 是加速通道，不替代主动查询。每次查询和人工证据都只追加记录。</li>
+          </ul>
+          <h3>11.1 供应商站外消费</h3>
+          <p>本地回退不能阻止用户在供应商其他入口消费。系统在周期刷新、新建预留前、fallback capture 前和资金异常后重新读取 provider balance，并计算：</p>
+          <pre>deficitMinor = max(reservedMinor - providerBalanceMinor, 0)</pre>
+          <div class="table-wrap"><table>
+            <thead><tr><th>条件</th><th>必须动作</th><th>禁止动作</th></tr></thead>
+            <tbody>
+              <tr><td><code>deficitMinor &gt; 0</code></td><td>阻止新预留，保留现有记录，发出 <code>provider_balance_deficit_alert</code>，创建 <code>AUTOMATION_FAILURE</code>（<code>PROVIDER_BALANCE_DEFICIT</code>）。</td><td>静默缩减预留、自动释放掩盖缺口、绕过预留直接扣款。</td></tr>
+              <tr><td>capture 因站外消费余额不足</td><td>返回 <code>INSUFFICIENT_FUNDS</code>，保持可审计状态并升级 L2/L3；需要集成处置时通知 L4。</td><td>把预留改成已捕获、生成新 key 或让客服直接改库。</td></tr>
+            </tbody>
+          </table></div>
+        </section>
+
+        <section id="errors">
+          <h2>12. 错误对齐</h2>
+          <p>对外错误与统一 OpenAPI 对齐；供应商内部错误在离开业务 API 前映射。错误响应使用统一的 <code>code/message/retryable/details</code> 结构。</p>
+          <div class="table-wrap"><table>
+            <thead><tr><th>场景</th><th>公开错误码</th><th>规则</th></tr></thead>
+            <tbody>
+              <tr><td>缺少 <code>fundReservationId</code> 或 version</td><td><code>VALIDATION_ERROR</code></td><td>调用供应商前拒绝。</td></tr>
+              <tr><td>新预留时可用余额不足</td><td><code>INSUFFICIENT_AVAILABLE_BALANCE</code></td><td>返回 shortfallMinor，不创建 FundReservation。</td></tr>
+              <tr><td>预留版本过期或状态不允许</td><td><code>RESERVATION_CONFLICT</code></td><td>刷新对象，仍复用原业务 intent key。</td></tr>
+              <tr><td>同键不同指纹</td><td><code>IDEMPOTENCY_CONFLICT</code></td><td>不创建替代写请求。</td></tr>
+              <tr><td>站外消费导致已有预留捕获失败</td><td><code>INSUFFICIENT_FUNDS</code></td><td>不写成功消费，进入缺口/客服路径。</td></tr>
+              <tr><td>取消预览与订单/预留版本不再匹配</td><td><code>CANCELLATION_PREVIEW_STALE</code></td><td>重新预览，不释放、不退款。</td></tr>
+              <tr><td>供应商终态与本地自动化终态冲突</td><td><code>AUTOMATION_STATE_CONFLICT</code></td><td>保留首个可信终态并升级人工处置。</td></tr>
+              <tr><td>所选模式能力不可用</td><td><code>SERVICE_NOT_AVAILABLE</code></td><td>停止新预留，不在生命周期中切换模式。</td></tr>
+              <tr><td>供应商故障或限流</td><td><code>PROVIDER_UNAVAILABLE</code></td><td>有限读取重试；写入先查询。</td></tr>
+              <tr><td>供应商写超时</td><td><code>PROVIDER_TIMEOUT</code></td><td>结果 UNKNOWN，锁定原意图并对账。</td></tr>
+              <tr><td>Webhook 签名或重放失败</td><td><code>SIGNATURE_INVALID</code> / <code>REPLAY_REJECTED</code></td><td>解析与业务变更前拒绝。</td></tr>
+              <tr><td>供应商认证或 Schema 错误</td><td><code>SERVICE_UNAVAILABLE</code> / <code>PROVIDER_UNAVAILABLE</code></td><td>不向客户端暴露供应商原文。</td></tr>
+            </tbody>
+          </table></div>
+        </section>
+
+        <section id="security">
+          <h2>13. 权限与安全</h2>
+          <div class="table-wrap"><table>
+            <thead><tr><th>级别</th><th>资金相关能力</th></tr></thead>
+            <tbody>
+              <tr><td><code>L1_SUPPORT</code></td><td>查看脱敏余额/预留状态、认领任务、联系核对、备注并提交审批；不得 capture、debit、refund 或改配置。</td></tr>
+              <tr><td><code>L2_SUPERVISOR</code></td><td>在已批准金额阈值内处理礼物和退款，处理余额不足与缺口任务；不能绕过 FundReservation。</td></tr>
+              <tr><td><code>L3_OPERATIONS</code></td><td>继承 L1–L2，处理更高金额、异常结案与缺口处置；达到 ¥5,000 时提交 L4。</td></tr>
+              <tr><td><code>L4_ADMIN_OWNER</code></td><td>继承 L1–L3，可在 step-up 后直接执行高额操作，并管理供应商、模式、证据、密钥和 Kill Switch；仍不可硬删除记录。</td></tr>
+            </tbody>
+          </table></div>
+          <ul>
+            <li>API Key、Bearer/OAuth Token、mTLS 私钥、绑定码、签名、原始 Webhook 正文和完整 external user id 不进普通日志。</li>
+            <li>Bot 与浏览器永远不持有供应商密钥；出站网络只允许 API/Adapter 工作负载。</li>
+            <li>停机开关停止新预留；查询、Webhook、release、对账与已批准 refund 保持可用。既有 capture 是否继续由版本化事故策略明确控制。</li>
+          </ul>
+        </section>
+
+        <section id="mock">
+          <h2>14. Mock 与契约测试</h2>
+          <p>Mock 提供 <code>mock-native-hold</code> 与 <code>mock-local-fallback</code> 两个能力档案。生产拒绝 <code>X-Mock-Scenario</code>；真实供应商必须复跑适用契约并补充真实沙箱证据。</p>
+          <div class="table-wrap"><table>
+            <thead><tr><th>ID</th><th>场景</th><th>通过条件</th></tr></thead>
+            <tbody>
+              <tr><td>PAY-C01</td><td>绑定</td><td>稳定解析用户且凭证不进日志。</td></tr>
+              <tr><td>PAY-C02</td><td>余额命名</td><td>适配器只返回 providerBalanceMinor，不返回 availableMinor。</td></tr>
+              <tr><td>PAY-C03/C04</td><td>能力发现</td><td>原生与回退档案准确报告 lifecycle、幂等、查询和 TTL。</td></tr>
+              <tr><td>PAY-C05/C06</td><td>Hold 幂等</td><td>同键同指纹一笔；改金额或过期时间返回 IDEMPOTENCY_CONFLICT。</td></tr>
+              <tr><td>PAY-C07</td><td>TTL</td><td>超出已证明范围时供应商变更前拒绝。</td></tr>
+              <tr><td>PAY-C08/C09</td><td>捕获与释放</td><td>捕获绑定 id/version；捕获前取消只释放一次。</td></tr>
+              <tr><td>PAY-C10</td><td>Hold 超时</td><td>按原键 getHold 收敛，不创建第二 hold。</td></tr>
+              <tr><td>PAY-C11/C12/C13</td><td>回退防绕过</td><td>缺 id/version、裸 ORDER/GIFT debit、旧 version 均在供应商调用前失败。</td></tr>
+              <tr><td>PAY-C14/C15</td><td>站外消费</td><td>捕获前复查；余额缺口阻止新预留并告警。</td></tr>
+              <tr><td>PAY-C16/C17</td><td>退款与交易恢复</td><td>捕获后才退款；UNKNOWN/PENDING 按原键查询收敛。</td></tr>
+              <tr><td>PAY-C18/C19/C20</td><td>Webhook</td><td>先验签、重复只应用一次、旧状态不降级。</td></tr>
+              <tr><td>PAY-C21</td><td>订单时点</td><td>提交 reserve，完成 capture。</td></tr>
+              <tr><td>PAY-C22</td><td>礼物时点</td><td>请求 reserve，批准 capture。</td></tr>
+              <tr><td>PAY-C23</td><td>逆向时点</td><td>捕获前 release，捕获后 refund。</td></tr>
+              <tr><td>PAY-C24</td><td>双方就绪</td><td>用户与陪玩都 ready 才进入 IN_SERVICE，且不 capture。</td></tr>
+              <tr><td>PAY-C25</td><td>日志脱敏</td><td>凭证、签名、原始正文和完整外部用户 ID 不出现。</td></tr>
+              <tr><td>PAY-C26/C27</td><td>模式与过期</td><td>生命周期不切换模式；HOLD_EXPIRED 不触发 debit。</td></tr>
+              <tr><td>PAY-C28</td><td>部分结案</td><td>捕获批准额并释放剩余，合计不超预留。</td></tr>
+              <tr><td>PAY-C29</td><td>余额公式</td><td>reservedMinor 为有效预留合计，availableMinor 使用统一公式；新预留差额返回 INSUFFICIENT_AVAILABLE_BALANCE。</td></tr>
+              <tr><td>PAY-C30</td><td>消费副作用</td><td>消费与 PROMOTER_FIRST_PURCHASE/PLAYER_LIFETIME 事实只在捕获成功后创建。</td></tr>
+              <tr><td>PAY-C31</td><td>Hold 金额守恒</td><td>captured + released + remaining 等于原预留金额。</td></tr>
+              <tr><td>PAY-C32/C33</td><td>回退并发与缺口</td><td>订单/礼物预留按账户币种串行；缺口暂停新预留、阻止捕获并创建任务。</td></tr>
+              <tr><td>PAY-C34/C35</td><td>供应商门禁</td><td>原生 Hold 与本地回退分别缺少阻断证据时不能生产启用。</td></tr>
+            </tbody>
+          </table></div>
+        </section>
+
+        <section id="onboarding">
+          <h2>15. 接入与验收</h2>
+          <p><a href="供应商接入核对清单.csv">供应商接入核对清单.csv</a> 要求每个启用决定都有责任人、证据和上线影响。能力声明、Mock 成功或供应商口头确认都不能代替阻断证据。</p>
+          <h3>15.1 阻断证据</h3>
+          <ul class="checklist">
+            <li>能力发现响应与正式文档一致，并完成原生 hold 或本地回退的明确模式批准。</li>
+            <li>原生模式具有 create/capture/release/get、幂等、查询、状态映射和 TTL 全量沙箱证据。</li>
+            <li>回退模式证明 debit 幂等与查询，并通过 id/version 必填、旧版本冲突和 direct debit bypass 测试。</li>
+            <li>订单提交 reserve、完成 capture；礼物请求 reserve、批准 capture 的端到端证据通过。</li>
+            <li>捕获前 release、捕获后 refund、部分结案、过期和 UNKNOWN/PENDING 恢复均有证据。</li>
+            <li>站外消费故障注入证明缺口可发现、阻止新预留并通知正确人员。</li>
+            <li>Webhook hold/debit/refund 状态、重复、乱序、签名和重放测试通过。</li>
+          </ul>
+          <h3>15.2 P0 完成定义</h3>
+          <ul class="checklist">
+            <li>业务代码只依赖 YAML 的稳定操作，供应商字段不泄漏到 Bot、Dashboard 或业务模块。</li>
+            <li>所有余额响应使用 providerBalanceMinor、reservedMinor、availableMinor、currency、fetchedAt。</li>
+            <li>每笔 fallback debit 都绑定 fundReservationId/version；不存在 ORDER/GIFT 直接扣款旁路。</li>
+            <li>订单、礼物、双方就绪、取消与退款时点符合本文件。</li>
+            <li>过期、超时、回调、对账与余额缺口都能进入可恢复、可审计状态。</li>
+            <li>四个工作人员级别的权限和审批均由统一业务 API 强制执行。</li>
+            <li>Mock 的 PAY-C01 至 PAY-C35 全部通过；真实供应商的所有阻断证据获批准。</li>
+          </ul>
+          <div class="callout"><strong>实现顺序：</strong>先实现 FundReservation 与余额摘要，再实现能力发现和两种资金模式，然后接入订单/礼物时点、对账/Webhook、缺口告警和接入证据门禁。本文描述的是计划交付，不宣称产品已实现。</div>
+        </section>
+      </main>
+    </div>
+
+    <footer>
+      本文只覆盖 Prototype P0 第三方支付、余额与资金预留适配，不扩展预约、陪玩试音、用户选陪玩、自建钱包、自动提现或多币种能力。
+    </footer>
+  </div>
+</body>
+</html>

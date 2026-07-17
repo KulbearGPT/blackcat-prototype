@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="陪玩业务系统 Prototype P0 团队文档中心">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%230d6b63'/%3E%3Cpath d='M19 17h26v30H19z' fill='%23fff'/%3E%3Cpath d='M25 24h14v4H25zm0 9h14v4H25z' fill='%23d1783f'/%3E%3C/svg%3E">
+  <title>陪玩业务系统 · 团队文档中心</title>
+  <style>
+    :root {
+      --ink: #1b262d;
+      --muted: #65727a;
+      --line: #d7dee2;
+      --surface: #ffffff;
+      --soft: #f4f7f8;
+      --nav: #172b32;
+      --teal: #0d6b63;
+      --teal-soft: #e9f5f2;
+      --blue: #2b5f91;
+      --blue-soft: #edf4fa;
+      --amber: #8a5b12;
+      --amber-soft: #fff6df;
+      --red: #963c3c;
+      --red-soft: #fff0ef;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--surface);
+      font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      letter-spacing: 0;
+    }
+    a { color: var(--blue); }
+    a:focus-visible { outline: 3px solid rgba(43, 95, 145, .25); outline-offset: 3px; }
+    .wrap { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
+    .site-header { color: #fff; background: var(--nav); border-bottom: 3px solid #d1783f; }
+    .header-row { min-height: 68px; display: flex; align-items: center; gap: 18px; }
+    .brand { display: flex; align-items: center; gap: 12px; color: #fff; text-decoration: none; }
+    .brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 6px; color: #fff; background: var(--teal); font-size: 17px; font-weight: 850; }
+    .brand strong { display: block; font-size: 16px; }
+    .brand small { display: block; color: #b9c7cd; font-size: 11px; }
+    .header-meta { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .header-tag { padding: 4px 8px; border: 1px solid #52666e; border-radius: 4px; color: #dce6e9; font-size: 11px; font-weight: 750; }
+    .header-tag.status { color: #d7f0e8; border-color: #397e6d; background: #194b43; }
+    .section-nav { position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.97); }
+    .section-nav .wrap { display: flex; gap: 22px; overflow-x: auto; padding-top: 10px; padding-bottom: 10px; }
+    .section-nav a { color: #54626a; text-decoration: none; white-space: nowrap; font-size: 13px; font-weight: 650; }
+    .section-nav a:hover { color: var(--teal); }
+    main section { padding: 34px 0; border-bottom: 1px solid var(--line); }
+    .intro { padding-top: 38px; background: linear-gradient(180deg, #f4f7f8 0, #fff 100%); }
+    .eyebrow { margin: 0 0 7px; color: var(--teal); font-size: 12px; font-weight: 850; text-transform: uppercase; }
+    h1 { max-width: 850px; margin: 0; font-size: 32px; line-height: 1.25; letter-spacing: 0; }
+    h2 { margin: 0 0 8px; font-size: 23px; letter-spacing: 0; }
+    h3 { margin: 0 0 7px; font-size: 16px; letter-spacing: 0; }
+    p { margin: 0 0 11px; }
+    .lead { max-width: 890px; margin-top: 12px; color: var(--muted); font-size: 17px; }
+    .notice { margin-top: 20px; padding: 14px 16px; border-left: 4px solid var(--amber); background: var(--amber-soft); color: #5f451c; }
+    .entry-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 24px; }
+    .entry { min-width: 0; padding: 17px; border: 1px solid var(--line); border-radius: 7px; color: inherit; background: #fff; text-decoration: none; }
+    .entry:hover { border-color: #96aab3; box-shadow: 0 5px 18px rgba(20, 38, 47, .08); }
+    .entry-label { display: block; margin-bottom: 10px; color: var(--teal); font-size: 11px; font-weight: 850; }
+    .entry strong { display: block; margin-bottom: 6px; font-size: 16px; }
+    .entry p { color: var(--muted); font-size: 13px; }
+    .entry-action { color: var(--blue); font-size: 13px; font-weight: 750; }
+    .section-head { display: flex; justify-content: space-between; gap: 24px; align-items: flex-end; margin-bottom: 18px; }
+    .section-head p { max-width: 700px; color: var(--muted); }
+    .scope-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--line); }
+    .scope-item { min-width: 0; padding: 18px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .scope-item:nth-child(2n) { border-right: 0; }
+    .scope-item:nth-last-child(-n+2) { border-bottom: 0; }
+    .scope-item p { color: var(--muted); }
+    .scope-tag { display: inline-block; margin-bottom: 8px; padding: 2px 7px; border-radius: 4px; color: #245149; background: var(--teal-soft); font-size: 11px; font-weight: 800; }
+    .reading-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .reading-card { padding: 16px; border: 1px solid var(--line); border-radius: 7px; background: var(--soft); }
+    .reading-card ol { margin: 10px 0 0; padding-left: 20px; color: #46555d; font-size: 13px; }
+    .reading-card li { margin: 6px 0; }
+    .reading-card a { text-decoration: none; }
+    .catalog { border: 1px solid var(--line); }
+    .catalog-group { display: grid; grid-template-columns: 190px minmax(0, 1fr); border-bottom: 1px solid var(--line); }
+    .catalog-group:last-child { border-bottom: 0; }
+    .catalog-name { padding: 15px; background: var(--soft); border-right: 1px solid var(--line); }
+    .catalog-name strong { display: block; }
+    .catalog-name span { color: var(--muted); font-size: 12px; }
+    .catalog-links { min-width: 0; padding: 13px 15px; display: flex; align-items: center; flex-wrap: wrap; gap: 7px 14px; }
+    .catalog-links a { text-decoration: none; font-size: 13px; }
+    .format { display: inline-block; margin-right: 4px; padding: 1px 5px; border: 1px solid #c5d1d8; border-radius: 3px; color: #53636c; background: #f8fafb; font-size: 9px; font-weight: 800; }
+    .decision-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .decision { padding: 15px; border-left: 3px solid var(--blue); background: var(--blue-soft); }
+    .decision:nth-child(2) { border-color: var(--teal); background: var(--teal-soft); }
+    .decision:nth-child(3) { border-color: var(--amber); background: var(--amber-soft); }
+    .decision p { color: #4e5b62; font-size: 13px; }
+    footer { padding: 28px 0 42px; color: var(--muted); font-size: 12px; }
+    .footer-row { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+    @media (max-width: 980px) {
+      .entry-grid, .reading-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .decision-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 680px) {
+      .wrap { width: min(100% - 24px, 1180px); }
+      .header-row { align-items: flex-start; padding: 12px 0; }
+      .header-meta { max-width: 160px; }
+      h1 { font-size: 27px; }
+      .intro { padding-top: 28px; }
+      .entry-grid, .reading-grid, .scope-grid { grid-template-columns: 1fr; }
+      .scope-item { border-right: 0; }
+      .scope-item:nth-last-child(-n+2) { border-bottom: 1px solid var(--line); }
+      .scope-item:last-child { border-bottom: 0; }
+      .catalog-group { grid-template-columns: 1fr; }
+      .catalog-name { border-right: 0; border-bottom: 1px solid var(--line); }
+      .section-head { display: block; }
+    }
+    @media print {
+      .section-nav { display: none; }
+      .site-header { color: #000; background: #fff; border-bottom: 1px solid #999; }
+      .brand, .brand small, .header-tag { color: #000; }
+      .entry, .reading-card { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-row">
+      <a class="brand" href="index.html" aria-label="团队文档中心首页">
+        <span class="brand-mark">陪</span>
+        <span><strong>陪玩业务系统</strong><small>团队文档中心</small></span>
+      </a>
+      <div class="header-meta"><span class="header-tag status">Prototype P0</span><span class="header-tag">文档基线 v0.7</span></div>
+    </div>
+  </header>
+
+  <nav class="section-nav" aria-label="页面目录">
+    <div class="wrap">
+      <a href="#start">从这里开始</a>
+      <a href="#scope">第一版本范围</a>
+      <a href="#reading">推荐阅读顺序</a>
+      <a href="#catalog">完整文档目录</a>
+      <a href="#decisions">当前关键决策</a>
+    </div>
+  </nav>
+
+  <main>
+    <section class="intro" id="start">
+      <div class="wrap">
+        <p class="eyebrow">Team Documentation Portal · v0.7</p>
+        <h1>陪玩业务系统团队文档中心</h1>
+        <p class="lead">这里汇总第一版本的产品演示、Discord 与 Dashboard 界面、业务规则、技术规格、开发计划和验收材料。请根据自己的工作角色选择入口。</p>
+        <div class="notice"><strong>状态说明：</strong>当前内容是计划中的产品原型和 Prototype P0 开发规格，不代表系统已经上线。实现状态必须以代码、测试和部署记录为准。</div>
+
+        <div class="entry-grid" aria-label="主要文档入口">
+          <a class="entry" href="陪玩业务系统非技术演示版.html">
+            <span class="entry-label">业务与客服</span><strong>先看产品怎样使用</strong>
+            <p>通过五个业务故事查看用户下单、派单、送礼、客服介入和争议处理。</p><span class="entry-action">打开非技术演示 →</span>
+          </a>
+          <a class="entry" href="陪玩业务系统第一版产品演示.html">
+            <span class="entry-label">产品与运营</span><strong>体验完整交互原型</strong>
+            <p>自由浏览 Discord 用户端、陪玩端和 Dashboard，并切换正常与异常分支。</p><span class="entry-action">打开完整产品原型 →</span>
+          </a>
+          <a class="entry" href="Discord陪玩业务Bot最小原型设计开发文档.html">
+            <span class="entry-label">产品与技术</span><strong>阅读总体设计规格</strong>
+            <p>查看 P0 范围、架构、状态机、数据、API、权限、部署和验收标准。</p><span class="entry-action">打开总体设计 →</span>
+          </a>
+          <a class="entry" href="P0开发交付包/index.html">
+            <span class="entry-label">开发与测试</span><strong>进入 P0 开发交付包</strong>
+            <p>按开发顺序访问 UI、OpenAPI、数据模型、支付适配、Backlog 和测试资料。</p><span class="entry-action">打开开发交付包 →</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section id="scope">
+      <div class="wrap">
+        <div class="section-head"><div><h2>第一版本范围</h2><p>第一版本聚焦可运行的核心业务闭环，第三方支付系统继续负责充值、支付、退款和真实余额。</p></div></div>
+        <div class="scope-grid">
+          <article class="scope-item"><span class="scope-tag">用户端 · Discord</span><h3>账户、订单与服务</h3><p>账户绑定、可用余额与消费历史、私密订单频道、结构化下单、取消与完成、礼物请求和个人收益展示。</p></article>
+          <article class="scope-item"><span class="scope-tag">陪玩端 · Discord</span><h3>独立陪玩工作界面</h3><p>在线及可接单状态、匹配订单、抢单、加入用户频道、双方就绪、当前服务、问题上报和收益摘要。</p></article>
+          <article class="scope-item"><span class="scope-tag">客服管理 · Dashboard</span><h3>自动化流程中的人工操作空间</h3><p>订单与派单接管、礼物核对、取消和争议处理、用户与陪玩管理、累积四级权限、审计和运营指标。</p></article>
+          <article class="scope-item"><span class="scope-tag">系统基础 · API</span><h3>统一业务事实与资金预留</h3><p>Sapphire Bot 和 Dashboard 复用统一 API；自有数据库保存用户映射、订单、礼物、返佣、消费记录、权限和审计。</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="reading">
+      <div class="wrap">
+        <div class="section-head"><div><h2>推荐阅读顺序</h2><p>不同角色不需要从头读完全部资料。先看与当前职责相关的入口，再按需进入详细规格。</p></div></div>
+        <div class="reading-grid">
+          <article class="reading-card"><h3>非技术团队</h3><ol><li><a href="陪玩业务系统非技术演示版.html">非技术演示版</a></li><li><a href="陪玩业务系统第一版产品演示.html">完整产品原型</a></li><li><a href="P0开发交付包/08-产品路线图/下一阶段功能路线图.html">下一阶段路线图</a></li></ol></article>
+          <article class="reading-card"><h3>产品与运营</h3><ol><li><a href="陪玩业务系统第一版产品演示.html">完整产品原型</a></li><li><a href="Discord陪玩业务Bot最小原型设计开发文档.html">总体设计规格</a></li><li><a href="P0开发交付包/05-业务配置/业务配置说明.html">业务配置说明</a></li></ol></article>
+          <article class="reading-card"><h3>开发团队</h3><ol><li><a href="Codex-P0开发TODO.md">Codex P0 执行清单</a></li><li><a href="P0开发交付包/index.html">P0 开发交付包</a></li><li><a href="P0开发交付包/02-API/openapi.yaml">OpenAPI 契约</a></li><li><a href="P0开发交付包/03-数据模型/数据模型与ERD.html">数据模型与 ERD</a></li></ol></article>
+          <article class="reading-card"><h3>测试与验收</h3><ol><li><a href="P0开发交付包/07-验收测试/Prototype验收测试计划.html">验收测试计划</a></li><li><a href="P0开发交付包/07-验收测试/acceptance-cases.csv">验收用例</a></li><li><a href="P0开发交付包/06-开发计划/backlog.csv">开发 Backlog</a></li></ol></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="catalog">
+      <div class="wrap">
+        <div class="section-head"><div><h2>完整文档目录</h2><p>HTML 适合直接阅读和演示；CSV、YAML、JSON、Markdown 与 Prisma 文件属于开发源资料，可在浏览器中查看或从仓库下载。</p></div></div>
+        <div class="catalog">
+          <div class="catalog-group"><div class="catalog-name"><strong>总体与演示</strong><span>团队共同输入</span></div><div class="catalog-links"><a href="陪玩业务系统非技术演示版.html"><span class="format">HTML</span>非技术演示</a><a href="陪玩业务系统第一版产品演示.html"><span class="format">HTML</span>完整产品原型</a><a href="Discord陪玩业务Bot最小原型设计开发文档.html"><span class="format">HTML</span>总体设计规格</a></div></div>
+          <div class="catalog-group"><div class="catalog-name"><strong>P0 交付总览</strong><span>开发导航与口径</span></div><div class="catalog-links"><a href="P0开发交付包/index.html"><span class="format">HTML</span>开发交付包首页</a></div></div>
+          <div class="catalog-group"><div class="catalog-name"><strong>01 · UI / UX</strong><span>Discord 与 Dashboard</span></div><div class="catalog-links"><a href="P0开发交付包/01-UIUX/Discord与Dashboard交互原型.html"><span class="format">HTML</span>交互原型</a><a href="P0开发交付包/01-UIUX/交互映射.csv"><span class="format">CSV</span>交互映射</a><a href="P0开发交付包/01-UIUX/界面文案清单.csv"><span class="format">CSV</span>界面文案</a></div></div>
+          <div class="catalog-group"><div class="catalog-name"><strong>02 · API</strong><span>统一业务接口</span></div><div class="catalog-links"><a href="P0开发交付包/02-API/API使用说明.md"><span class="format">MD</span>API 使用说明</a><a href="P0开发交付包/02-API/openapi.yaml"><span class="format">YAML</span>OpenAPI 契约</a></div></div>
+          <div class="catalog-group"><div class="catalog-name"><strong>03 · 数据模型</strong><span>数据库与状态约束</span></div><div class="catalog-links"><a href="P0开发交付包/03-数据模型/数据模型与ERD.html"><span class="format">HTML</span>数据模型与 ERD</a><a href="P0开发交付包/03-数据模型/schema.prisma"><span class="format">PRISMA</span>Schema</a><a href="P0开发交付包/03-数据模型/状态枚举与约束.md"><span class="format">MD</span>状态与约束</a></div></div>
+          <div class="catalog-group"><div class="catalog-name"><strong>04 · 支付集成</strong><span>第三方余额适配</span></div><div class="catalog-links"><a href="P0开发交付包/04-支付集成/第三方支付与余额适配器规格.html"><span class="format">HTML</span>适配器规格</a><a href="P0开发交付包/04-支付集成/adapter-contract.yaml"><span class="format">YAML</span>适配器契约</a><a href="P0开发交付包/04-支付集成/供应商接入核对清单.csv"><span class="format">CSV</span>供应商核对</a></div></div>
+          <div class="catalog-group"><div class="catalog-name"><strong>05 · 业务配置</strong><span>规则、校验与种子数据</span></div><div class="catalog-links"><a href="P0开发交付包/05-业务配置/业务配置说明.html"><span class="format">HTML</span>业务配置说明</a><a href="P0开发交付包/05-业务配置/business-config.example.yaml"><span class="format">YAML</span>配置示例</a><a href="P0开发交付包/05-业务配置/business-config.schema.json"><span class="format">JSON</span>配置 Schema</a><a href="P0开发交付包/05-业务配置/seed-data.csv"><span class="format">CSV</span>种子数据</a></div></div>
+          <div class="catalog-group"><div class="catalog-name"><strong>06 · 开发计划</strong><span>范围与任务拆分</span></div><div class="catalog-links"><a href="Codex-P0开发TODO.md"><span class="format">MD</span>Codex P0 执行清单</a><a href="P0开发交付包/06-开发计划/Prototype开发Backlog.html"><span class="format">HTML</span>开发 Backlog</a><a href="P0开发交付包/06-开发计划/backlog.csv"><span class="format">CSV</span>Backlog 数据</a></div></div>
+          <div class="catalog-group"><div class="catalog-name"><strong>07 · 验收测试</strong><span>交付门槛与测试数据</span></div><div class="catalog-links"><a href="P0开发交付包/07-验收测试/Prototype验收测试计划.html"><span class="format">HTML</span>验收测试计划</a><a href="P0开发交付包/07-验收测试/acceptance-cases.csv"><span class="format">CSV</span>验收用例</a><a href="P0开发交付包/07-验收测试/test-fixtures.json"><span class="format">JSON</span>测试数据</a></div></div>
+          <div class="catalog-group"><div class="catalog-name"><strong>08 · 产品路线图</strong><span>P1 与长期备选</span></div><div class="catalog-links"><a href="P0开发交付包/08-产品路线图/下一阶段功能路线图.html"><span class="format">HTML</span>下一阶段功能路线图</a></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="decisions">
+      <div class="wrap">
+        <div class="section-head"><div><h2>当前关键决策</h2><p>以下口径已进入 v0.7；如发生调整，应同步更新总体规格、API、数据模型、原型和验收用例。</p></div></div>
+        <div class="decision-grid">
+          <article class="decision"><h3>统一业务 API</h3><p>Sapphire Discord Bot 与 Dashboard 都调用可复用 API，不在各自客户端重复实现订单、资金、返佣和权限规则。</p></article>
+          <article class="decision"><h3>预留后再消费</h3><p>订单和订单内礼物先占用可用余额；5 分钟派单超时保持原预留，取消或 30 分钟到期才释放，避免重复占用和服务结束后追款。</p></article>
+          <article class="decision"><h3>自动化保留人工接管</h3><p>下单、派单、取消和完成默认自动；超时、争议、礼物核对和高风险操作进入客服任务，并由满足最低等级且完成所需 step-up/MFA 的人员直接执行。</p></article>
+        </div>
+        <div class="notice"><strong>统一权限口径：</strong>权限按 L1&lt;L2&lt;L3&lt;L4 累积继承，高级别自动拥有低级全部执行权限；业务操作采用最低等级直接执行，同一人可发起并执行。高额 ≥500000 必须 L4，但不强制不同人员复核；仍须保留原因、完成策略要求的 step-up/MFA，并写入不可篡改审计。</div>
+      </div>
+    </section>
+  </main>
+
+  <footer><div class="wrap footer-row"><span>陪玩业务系统 · Prototype P0 团队文档</span><span>文档基线 v0.7 · 更新日期 2026-07-16</span></div></footer>
+</body>
+</html>

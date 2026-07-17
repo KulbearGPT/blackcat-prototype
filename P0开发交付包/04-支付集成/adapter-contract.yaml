@@ -1,0 +1,911 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Payment Provider Neutral Funding Adapter Contract
+  version: 1.2.0-prototype
+  description: |
+    P0 contract-test facade for the unified business API. Funding uses a
+    provider-native hold when the complete lifecycle and usable lifetime are
+    proven; otherwise it uses an approved local FundReservation fallback.
+    The adapter returns the provider balance only. The business API computes
+    reservedMinor and availableMinor and owns every business funding decision.
+servers:
+  - url: http://localhost:4100
+    description: Deterministic local mock adapter
+tags:
+  - name: Capabilities
+  - name: Identity
+  - name: Balance
+  - name: Holds
+  - name: Transactions
+  - name: Webhooks
+security:
+  - AdapterServiceToken: []
+x-runtime-binding: in-process-or-contract-test-facade
+x-money-policy:
+  representation: minor-units-integer
+  currency: ISO-4217-uppercase
+  prototypeCurrency: CNY
+x-funding-mode-policy:
+  owner: unified-business-api
+  evidence: discoverCapabilities-plus-approved-supplier-checklist
+  modes: [PROVIDER_NATIVE_HOLD, LOCAL_RESERVATION_FALLBACK]
+  snapshotRule: one FundReservation keeps one mode for its entire lifecycle
+  nativeHoldRequirements:
+    - create-capture-release-get-proven
+    - idempotent-writes-and-lookup-proven
+    - maximum-hold-lifetime-covers-business-window-plus-safety-margin
+  fallbackRequirements:
+    - idempotent-provider-debit-and-lookup-proven
+    - fresh-provider-balance-rechecked-before-capture
+    - fundReservationId-and-fundReservationVersion-required-on-every-debit
+  directDebitRule: unbound ORDER or GIFT debit is prohibited
+x-business-balance-policy:
+  adapterFields: [providerBalanceMinor, currency, fetchedAt]
+  businessApiFields: [providerBalanceMinor, reservedMinor, availableMinor, currency, fetchedAt]
+  activeFundReservationStatuses: [PENDING, ACTIVE, DISPUTED, PARTIALLY_SETTLED]
+  reservedMinor: sum-of-active-FundReservation-amounts
+  availableMinor: providerBalanceMinor-minus-reservedMinor
+  deficitRule: preserve negative availableMinor, block new reservations and alert
+x-business-lifecycle-policy:
+  order:
+    reserve: submit
+    readiness: customer-and-player-must-both-be-ready-before-IN_SERVICE
+    capture: completion
+    cancelBeforeCapture: release
+    cancelAfterCapture: refund
+  gift:
+    reserve: request
+    capture: approval
+    rejectExpireOrWithdrawBeforeCapture: release
+    reverseAfterCapture: refund
+  partialResolution: capture-approved-amount-and-release-remainder
+  referralPrograms: [PROMOTER_FIRST_PURCHASE, PLAYER_LIFETIME]
+  referralRule: consumption-and-referral-facts-follow-successful-capture-only
+x-default-policies:
+  timeouts:
+    connectMs: 2000
+    readOperationTotalMs: 5000
+    writeOperationTotalMs: 8000
+    webhookVerificationMs: 500
+  retries:
+    reads: {maxRetries: 2, backoffMs: [200, 500], jitter: full}
+    writes: {maxBlindRetries: 0, rule: query-before-retry-with-original-key}
+  reconciliation:
+    scheduleAfterSeconds: [15, 60, 300, 900]
+    staffReviewAfterSeconds: 1800
+
+paths:
+  /adapter/v1/capabilities:
+    get:
+      tags: [Capabilities]
+      operationId: discoverCapabilities
+      summary: Discover normalized provider funding capabilities
+      description: |
+        Discovery reports observed support, not production enablement. The
+        business API selects PROVIDER_NATIVE_HOLD only after blocking checklist
+        evidence proves create, capture, release, get, idempotency and expiry.
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/MockScenario'
+      responses:
+        '200':
+          description: Normalized capabilities
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProviderCapabilities'}
+        default: {$ref: '#/components/responses/AdapterFailure'}
+
+  /adapter/v1/users:resolve:
+    post:
+      tags: [Identity]
+      operationId: resolveUser
+      summary: Resolve and verify a provider user
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/MockScenario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ResolveUserRequest'}
+      responses:
+        '200':
+          description: User resolved
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ResolvedUser'}
+        default: {$ref: '#/components/responses/AdapterFailure'}
+
+  /adapter/v1/users/{externalUserId}/provider-balance:
+    get:
+      tags: [Balance]
+      operationId: getProviderBalance
+      summary: Get the current provider balance
+      description: |
+        Returns providerBalanceMinor. It never returns reservedMinor or
+        availableMinor; the business API computes those from FundReservation.
+      parameters:
+        - $ref: '#/components/parameters/ExternalUserId'
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/MockScenario'
+      responses:
+        '200':
+          description: Fresh provider balance snapshot
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProviderBalanceSnapshot'}
+        default: {$ref: '#/components/responses/AdapterFailure'}
+
+  /adapter/v1/holds:
+    post:
+      tags: [Holds]
+      operationId: createHold
+      summary: Create one idempotent provider-native hold
+      description: |
+        Used only for a FundReservation whose snapshotted mode is
+        PROVIDER_NATIVE_HOLD. UNKNOWN and PENDING are recovered with getHold and
+        never cause an automatic switch to local fallback.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/MockScenario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateHoldRequest'}
+      responses:
+        '200':
+          description: Existing hold returned idempotently
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Hold'}
+        '201':
+          description: Hold created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Hold'}
+        default: {$ref: '#/components/responses/AdapterFailure'}
+
+  /adapter/v1/holds/{lookupValue}:
+    get:
+      tags: [Holds]
+      operationId: getHold
+      summary: Get a hold by provider reference or idempotency key
+      parameters:
+        - $ref: '#/components/parameters/HoldLookupValue'
+        - $ref: '#/components/parameters/HoldLookupType'
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/MockScenario'
+      responses:
+        '200':
+          description: Current normalized hold
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Hold'}
+        default: {$ref: '#/components/responses/AdapterFailure'}
+
+  /adapter/v1/holds/{holdRef}:capture:
+    post:
+      tags: [Holds]
+      operationId: captureHold
+      summary: Capture all or an approved part of an active hold
+      description: |
+        Called on order completion or gift approval, never on submit, request or
+        readiness. The FundReservation binding and version are mandatory.
+      parameters:
+        - $ref: '#/components/parameters/HoldRef'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/MockScenario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CaptureHoldRequest'}
+      responses:
+        '200':
+          description: Hold after capture or idempotent replay
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Hold'}
+        default: {$ref: '#/components/responses/AdapterFailure'}
+
+  /adapter/v1/holds/{holdRef}:release:
+    post:
+      tags: [Holds]
+      operationId: releaseHold
+      summary: Release all or the uncaptured remainder of a hold
+      description: |
+        Release handles cancellation, rejection, withdrawal, failure and expiry
+        before capture. It is not a refund. Captured money uses createRefund.
+      parameters:
+        - $ref: '#/components/parameters/HoldRef'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/MockScenario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ReleaseHoldRequest'}
+      responses:
+        '200':
+          description: Hold after release or idempotent replay
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Hold'}
+        default: {$ref: '#/components/responses/AdapterFailure'}
+
+  /adapter/v1/reservation-debits:
+    post:
+      tags: [Transactions]
+      operationId: createReservationDebit
+      summary: Capture an approved local FundReservation with one provider debit
+      description: |
+        Fallback only. Before this call, the business API locks the active
+        FundReservation, validates fundReservationVersion, fetches a fresh
+        providerBalanceMinor and atomically revalidates reservedMinor and
+        availableMinor. Missing binding, stale version and unbound ORDER/GIFT
+        debit attempts are rejected before contacting the provider.
+      x-required-funding-mode: LOCAL_RESERVATION_FALLBACK
+      x-prohibits-direct-order-gift-debit: true
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/MockScenario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateReservationDebitRequest'}
+      responses:
+        '200':
+          description: Normalized fallback debit
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Transaction'}
+        default: {$ref: '#/components/responses/AdapterFailure'}
+
+  /adapter/v1/refunds:
+    post:
+      tags: [Transactions]
+      operationId: createRefund
+      summary: Create one idempotent refund after capture
+      description: |
+        Refunds a successful hold capture or fallback debit. Cancellation before
+        capture releases instead. Successful and unresolved refunds cannot exceed
+        the captured amount; original facts remain immutable.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/MockScenario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateRefundRequest'}
+      responses:
+        '200':
+          description: Normalized refund
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Transaction'}
+        default: {$ref: '#/components/responses/AdapterFailure'}
+
+  /adapter/v1/transactions/{lookupValue}:
+    get:
+      tags: [Transactions]
+      operationId: getTransaction
+      summary: Resolve a fallback debit or refund
+      parameters:
+        - $ref: '#/components/parameters/TransactionLookupValue'
+        - $ref: '#/components/parameters/TransactionLookupType'
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/MockScenario'
+      responses:
+        '200':
+          description: Current normalized transaction
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Transaction'}
+        default: {$ref: '#/components/responses/AdapterFailure'}
+
+  /adapter/v1/webhooks:verify:
+    post:
+      tags: [Webhooks]
+      operationId: verifyWebhook
+      summary: Verify and normalize a provider webhook
+      description: |
+        Verification runs against exact raw bytes before parsing or mutation.
+        Normalized events cover hold create/update/capture/release/expiry,
+        fallback debit and refund states.
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/MockScenario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/VerifyWebhookRequest'}
+      responses:
+        '200':
+          description: Verified provider event
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VerifiedWebhook'}
+        default: {$ref: '#/components/responses/AdapterFailure'}
+
+components:
+  securitySchemes:
+    AdapterServiceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque-service-token
+
+  parameters:
+    ExternalUserId:
+      name: externalUserId
+      in: path
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 200}
+    HoldRef:
+      name: holdRef
+      in: path
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 200}
+    HoldLookupValue:
+      name: lookupValue
+      in: path
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 200}
+    HoldLookupType:
+      name: lookupType
+      in: query
+      required: true
+      schema: {$ref: '#/components/schemas/HoldLookupType'}
+    TransactionLookupValue:
+      name: lookupValue
+      in: path
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 200}
+    TransactionLookupType:
+      name: lookupType
+      in: query
+      required: true
+      schema: {$ref: '#/components/schemas/TransactionLookupType'}
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 200
+        pattern: '^[A-Za-z0-9:_-]+$'
+    RequestId:
+      name: X-Request-Id
+      in: header
+      required: true
+      schema: {type: string, minLength: 8, maxLength: 100}
+    MockScenario:
+      name: X-Mock-Scenario
+      in: header
+      required: false
+      schema: {$ref: '#/components/schemas/MockScenario'}
+
+  schemas:
+    Currency:
+      type: string
+      pattern: '^[A-Z]{3}$'
+      examples: [CNY]
+    Money:
+      type: object
+      additionalProperties: false
+      required: [amountMinor, currency]
+      properties:
+        amountMinor: {type: integer, format: int64, minimum: 0}
+        currency: {$ref: '#/components/schemas/Currency'}
+    PositiveMoney:
+      type: object
+      additionalProperties: false
+      required: [amountMinor, currency]
+      properties:
+        amountMinor: {type: integer, format: int64, minimum: 1}
+        currency: {$ref: '#/components/schemas/Currency'}
+
+    ProviderCapabilities:
+      type: object
+      additionalProperties: false
+      required: [providerKey, discoveredAt, nativeHold, fallbackDebit, refund, webhook]
+      properties:
+        providerKey: {type: string, pattern: '^[a-z][a-z0-9_-]{2,63}$'}
+        discoveredAt: {type: string, format: date-time}
+        nativeHold: {$ref: '#/components/schemas/NativeHoldCapability'}
+        fallbackDebit: {$ref: '#/components/schemas/FallbackDebitCapability'}
+        refund: {$ref: '#/components/schemas/RefundCapability'}
+        webhook: {$ref: '#/components/schemas/WebhookCapability'}
+    NativeHoldCapability:
+      type: object
+      additionalProperties: false
+      required: [supported, create, capture, release, get, idempotentWrites, lookupByIdempotencyKey, partialCapture, partialRelease, minimumTtlSeconds, maximumTtlSeconds]
+      properties:
+        supported: {type: boolean}
+        create: {type: boolean}
+        capture: {type: boolean}
+        release: {type: boolean}
+        get: {type: boolean}
+        idempotentWrites: {type: boolean}
+        lookupByIdempotencyKey: {type: boolean}
+        partialCapture: {type: boolean}
+        partialRelease: {type: boolean}
+        minimumTtlSeconds: {type: [integer, 'null'], minimum: 1}
+        maximumTtlSeconds: {type: [integer, 'null'], minimum: 1}
+    FallbackDebitCapability:
+      type: object
+      additionalProperties: false
+      required: [supported, idempotentWrites, lookupByIdempotencyKey]
+      properties:
+        supported: {type: boolean}
+        idempotentWrites: {type: boolean}
+        lookupByIdempotencyKey: {type: boolean}
+    RefundCapability:
+      type: object
+      additionalProperties: false
+      required: [full, partial, idempotentWrites, lookupByIdempotencyKey]
+      properties:
+        full: {type: boolean}
+        partial: {type: boolean}
+        idempotentWrites: {type: boolean}
+        lookupByIdempotencyKey: {type: boolean}
+    WebhookCapability:
+      type: object
+      additionalProperties: false
+      required: [supported, stableEventId, eventTypes]
+      properties:
+        supported: {type: boolean}
+        stableEventId: {type: boolean}
+        eventTypes:
+          type: array
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/ProviderEventType'}
+
+    ResolveUserRequest:
+      type: object
+      additionalProperties: false
+      required: [credentialType, credentialValue]
+      properties:
+        credentialType: {type: string, enum: [ONE_TIME_CODE, EXTERNAL_USER_ID]}
+        credentialValue: {type: string, minLength: 1, maxLength: 500, writeOnly: true, x-sensitive: true}
+        expectedCurrency: {$ref: '#/components/schemas/Currency'}
+    ResolvedUser:
+      type: object
+      additionalProperties: false
+      required: [externalUserId, verified, accountStatus, resolvedAt]
+      properties:
+        externalUserId: {type: string, minLength: 1, maxLength: 200}
+        displayName: {type: [string, 'null'], maxLength: 200}
+        verified: {const: true}
+        accountStatus: {type: string, enum: [ACTIVE, INACTIVE, SUSPENDED, UNKNOWN]}
+        resolvedAt: {type: string, format: date-time}
+    ProviderBalanceSnapshot:
+      type: object
+      additionalProperties: false
+      required: [externalUserId, providerBalanceMinor, currency, fetchedAt, stale]
+      properties:
+        externalUserId: {type: string, minLength: 1, maxLength: 200}
+        providerBalanceMinor:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Provider-reported balance; never named availableMinor.
+        currency: {$ref: '#/components/schemas/Currency'}
+        fetchedAt: {type: string, format: date-time}
+        providerAsOf: {type: [string, 'null'], format: date-time}
+        stale: {type: boolean}
+
+    BusinessSource:
+      type: string
+      enum: [ORDER, GIFT]
+    FundReservationBinding:
+      type: object
+      additionalProperties: false
+      required: [fundReservationId, fundReservationVersion]
+      properties:
+        fundReservationId: {type: string, format: uuid}
+        fundReservationVersion: {type: integer, minimum: 1}
+    CreateHoldRequest:
+      type: object
+      additionalProperties: false
+      required: [fundReservationId, fundReservationVersion, externalUserId, amount, businessSource, businessReference, expiresAt]
+      properties:
+        fundReservationId: {type: string, format: uuid}
+        fundReservationVersion: {type: integer, minimum: 1}
+        externalUserId: {type: string, minLength: 1, maxLength: 200}
+        amount: {$ref: '#/components/schemas/PositiveMoney'}
+        businessSource: {$ref: '#/components/schemas/BusinessSource'}
+        businessReference: {type: string, format: uuid}
+        expiresAt: {type: string, format: date-time}
+        metadata: {$ref: '#/components/schemas/TransactionMetadata'}
+    CaptureHoldRequest:
+      type: object
+      additionalProperties: false
+      required: [fundReservationId, fundReservationVersion, amount, businessReference]
+      properties:
+        fundReservationId: {type: string, format: uuid}
+        fundReservationVersion: {type: integer, minimum: 1}
+        amount: {$ref: '#/components/schemas/PositiveMoney'}
+        businessReference: {type: string, format: uuid}
+        reasonCode: {type: string, pattern: '^[A-Z][A-Z0-9_]{2,63}$'}
+    ReleaseHoldRequest:
+      type: object
+      additionalProperties: false
+      required: [fundReservationId, fundReservationVersion, reasonCode]
+      properties:
+        fundReservationId: {type: string, format: uuid}
+        fundReservationVersion: {type: integer, minimum: 1}
+        reasonCode: {type: string, pattern: '^[A-Z][A-Z0-9_]{2,63}$'}
+        amount: {$ref: '#/components/schemas/PositiveMoney'}
+    HoldLookupType:
+      type: string
+      enum: [PROVIDER_HOLD_REF, IDEMPOTENCY_KEY]
+    HoldStatus:
+      type: string
+      enum: [UNKNOWN, PENDING, ACTIVE, PARTIALLY_CAPTURED, CAPTURED, RELEASED, EXPIRED, FAILED]
+    Hold:
+      type: object
+      additionalProperties: false
+      required: [status, idempotencyKey, fundReservationId, fundReservationVersion, externalUserId, businessSource, businessReference, amount, capturedAmount, releasedAmount, remainingAmount, expiresAt, observedAt]
+      properties:
+        status: {$ref: '#/components/schemas/HoldStatus'}
+        idempotencyKey: {type: string, minLength: 16, maxLength: 200}
+        fundReservationId: {type: string, format: uuid}
+        fundReservationVersion: {type: integer, minimum: 1}
+        externalUserId: {type: string, minLength: 1, maxLength: 200}
+        businessSource: {$ref: '#/components/schemas/BusinessSource'}
+        businessReference: {type: string, format: uuid}
+        holdRef: {type: [string, 'null'], maxLength: 200}
+        amount: {$ref: '#/components/schemas/PositiveMoney'}
+        capturedAmount: {$ref: '#/components/schemas/Money'}
+        releasedAmount: {$ref: '#/components/schemas/Money'}
+        remainingAmount: {$ref: '#/components/schemas/Money'}
+        expiresAt: {type: string, format: date-time}
+        providerStatus: {type: [string, 'null'], maxLength: 100}
+        observedAt: {type: string, format: date-time}
+        failure:
+          anyOf:
+            - {$ref: '#/components/schemas/OperationFailure'}
+            - {type: 'null'}
+      x-invariants:
+        - captured-plus-released-plus-remaining-equals-original-amount
+        - all-money-values-use-the-same-currency
+
+    CreateReservationDebitRequest:
+      type: object
+      additionalProperties: false
+      required: [fundReservationId, fundReservationVersion, externalUserId, amount, businessSource, businessReference]
+      properties:
+        fundReservationId: {type: string, format: uuid}
+        fundReservationVersion: {type: integer, minimum: 1}
+        externalUserId: {type: string, minLength: 1, maxLength: 200}
+        amount: {$ref: '#/components/schemas/PositiveMoney'}
+        businessSource: {$ref: '#/components/schemas/BusinessSource'}
+        businessReference: {type: string, format: uuid}
+        metadata: {$ref: '#/components/schemas/TransactionMetadata'}
+      x-business-api-preconditions:
+        - mode-is-LOCAL_RESERVATION_FALLBACK
+        - reservation-is-active-and-unexpired
+        - fundReservationVersion-matches-locked-row
+        - fresh-providerBalanceMinor-revalidated
+        - no-provider-balance-deficit
+    CreateRefundRequest:
+      type: object
+      additionalProperties: false
+      required: [originalTransactionRef, amount, reasonCode, businessReference]
+      properties:
+        originalTransactionRef: {type: string, minLength: 1, maxLength: 200}
+        amount: {$ref: '#/components/schemas/PositiveMoney'}
+        reasonCode: {type: string, pattern: '^[A-Z][A-Z0-9_]{2,63}$'}
+        businessReference: {type: string, format: uuid}
+        metadata: {$ref: '#/components/schemas/TransactionMetadata'}
+    TransactionMetadata:
+      type: object
+      additionalProperties: {type: [string, number, boolean, 'null']}
+      maxProperties: 20
+    TransactionLookupType:
+      type: string
+      enum: [PROVIDER_REF, IDEMPOTENCY_KEY]
+    TransactionKind:
+      type: string
+      enum: [FALLBACK_DEBIT, REFUND]
+    TransactionStatus:
+      type: string
+      enum: [UNKNOWN, PENDING, SUCCEEDED, FAILED]
+    Transaction:
+      type: object
+      additionalProperties: false
+      required: [kind, status, idempotencyKey, amount, businessReference, observedAt]
+      properties:
+        kind: {$ref: '#/components/schemas/TransactionKind'}
+        status: {$ref: '#/components/schemas/TransactionStatus'}
+        idempotencyKey: {type: string, minLength: 16, maxLength: 200}
+        fundReservationId: {type: [string, 'null'], format: uuid}
+        fundReservationVersion: {type: [integer, 'null'], minimum: 1}
+        businessSource:
+          anyOf:
+            - {$ref: '#/components/schemas/BusinessSource'}
+            - {type: 'null'}
+        amount: {$ref: '#/components/schemas/PositiveMoney'}
+        businessReference: {type: string, format: uuid}
+        providerRef: {type: [string, 'null'], maxLength: 200}
+        originalProviderRef: {type: [string, 'null'], maxLength: 200}
+        providerStatus: {type: [string, 'null'], maxLength: 100}
+        observedAt: {type: string, format: date-time}
+        providerOccurredAt: {type: [string, 'null'], format: date-time}
+        failure:
+          anyOf:
+            - {$ref: '#/components/schemas/OperationFailure'}
+            - {type: 'null'}
+    OperationFailure:
+      type: object
+      additionalProperties: false
+      required: [code, retryable, safeMessage]
+      properties:
+        code: {$ref: '#/components/schemas/ErrorCode'}
+        retryable: {type: boolean}
+        safeMessage: {type: string, maxLength: 200}
+
+    VerifyWebhookRequest:
+      type: object
+      additionalProperties: false
+      required: [headers, rawBodyBase64, receivedAt]
+      properties:
+        headers: {type: object, additionalProperties: {type: string}, x-sensitive: true}
+        rawBodyBase64: {type: string, contentEncoding: base64, writeOnly: true, x-sensitive: true}
+        receivedAt: {type: string, format: date-time}
+    VerifiedWebhook:
+      type: object
+      additionalProperties: false
+      required: [verified, event]
+      properties:
+        verified: {const: true}
+        event: {$ref: '#/components/schemas/ProviderEvent'}
+    ProviderEventType:
+      type: string
+      enum: [HOLD_CREATED, HOLD_UPDATED, HOLD_CAPTURED, HOLD_RELEASED, HOLD_EXPIRED, DEBIT_UPDATED, REFUND_UPDATED]
+    ProviderEvent:
+      oneOf:
+        - {$ref: '#/components/schemas/HoldProviderEvent'}
+        - {$ref: '#/components/schemas/TransactionProviderEvent'}
+    HoldProviderEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, resourceType, eventType, holdRef, holdStatus, occurredAt]
+      properties:
+        eventId: {type: string, minLength: 1, maxLength: 200}
+        resourceType: {const: HOLD}
+        eventType: {type: string, enum: [HOLD_CREATED, HOLD_UPDATED, HOLD_CAPTURED, HOLD_RELEASED, HOLD_EXPIRED]}
+        holdRef: {type: string, minLength: 1, maxLength: 200}
+        idempotencyKey: {type: [string, 'null'], maxLength: 200}
+        holdStatus: {$ref: '#/components/schemas/HoldStatus'}
+        amount:
+          anyOf:
+            - {$ref: '#/components/schemas/Money'}
+            - {type: 'null'}
+        expiresAt: {type: [string, 'null'], format: date-time}
+        occurredAt: {type: string, format: date-time}
+        providerSequence: {type: [integer, 'null'], minimum: 0}
+        providerStatus: {type: [string, 'null'], maxLength: 100}
+    TransactionProviderEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, resourceType, eventType, providerRef, transactionStatus, occurredAt]
+      properties:
+        eventId: {type: string, minLength: 1, maxLength: 200}
+        resourceType: {const: TRANSACTION}
+        eventType: {type: string, enum: [DEBIT_UPDATED, REFUND_UPDATED]}
+        providerRef: {type: string, minLength: 1, maxLength: 200}
+        idempotencyKey: {type: [string, 'null'], maxLength: 200}
+        transactionStatus: {$ref: '#/components/schemas/TransactionStatus'}
+        amount:
+          anyOf:
+            - {$ref: '#/components/schemas/Money'}
+            - {type: 'null'}
+        occurredAt: {type: string, format: date-time}
+        providerSequence: {type: [integer, 'null'], minimum: 0}
+        providerStatus: {type: [string, 'null'], maxLength: 100}
+
+    ErrorCode:
+      type: string
+      description: Public codes align to the unified OpenAPI; provider-only codes are mapped before response.
+      enum: [VALIDATION_ERROR, RESOURCE_NOT_FOUND, CONFLICT, IDEMPOTENCY_CONFLICT, BUSINESS_RULE_VIOLATION, SERVICE_NOT_AVAILABLE, INSUFFICIENT_FUNDS, INSUFFICIENT_AVAILABLE_BALANCE, RESERVATION_CONFLICT, CANCELLATION_PREVIEW_STALE, AUTOMATION_STATE_CONFLICT, PROVIDER_UNAVAILABLE, PROVIDER_TIMEOUT, SIGNATURE_INVALID, REPLAY_REJECTED, AUTHENTICATION_FAILED, RATE_LIMITED, SCHEMA_MISMATCH, UNKNOWN_PROVIDER_ERROR, REFUND_AMOUNT_EXCEEDED]
+    ErrorDetail:
+      type: object
+      additionalProperties: false
+      required: [field, reason]
+      properties:
+        field: {type: string, maxLength: 100}
+        reason: {type: string, maxLength: 300}
+    AdapterError:
+      type: object
+      additionalProperties: false
+      required: [code, message, retryable, requestId, details]
+      properties:
+        code: {$ref: '#/components/schemas/ErrorCode'}
+        message: {type: string, maxLength: 200}
+        retryable: {type: boolean}
+        requestId: {type: string}
+        details: {type: array, maxItems: 20, items: {$ref: '#/components/schemas/ErrorDetail'}}
+        providerHttpStatus: {type: [integer, 'null'], minimum: 100, maximum: 599}
+    MockScenario:
+      type: string
+      enum: [CAPABILITIES_NATIVE_HOLD, CAPABILITIES_LOCAL_FALLBACK, SUCCESS, USER_NOT_FOUND, INSUFFICIENT_AVAILABLE_BALANCE, INSUFFICIENT_FUNDS, HOLD_PENDING_THEN_ACTIVE, HOLD_EXPIRES, HOLD_CAPTURE_SUCCESS, HOLD_PARTIAL_CAPTURE, HOLD_RELEASE_SUCCESS, HOLD_TIMEOUT_AFTER_COMMIT, FALLBACK_DEBIT_SUCCESS, FALLBACK_DEBIT_TIMEOUT_AFTER_COMMIT, RESERVATION_BINDING_MISSING, RESERVATION_VERSION_CONFLICT, OUT_OF_BAND_SPEND_DEFICIT, PROVIDER_FAILURE, RATE_LIMITED, CURRENCY_MISMATCH, REFUND_SUCCESS, REFUND_PENDING_THEN_SUCCESS, REFUND_AMOUNT_EXCEEDED, DUPLICATE_WEBHOOK, OUT_OF_ORDER_WEBHOOK, HOLD_EXPIRED_WEBHOOK, INVALID_SIGNATURE, REPLAYED_WEBHOOK]
+
+  responses:
+    AdapterFailure:
+      description: Normalized adapter or provider failure
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/AdapterError'}
+          example:
+            code: PROVIDER_UNAVAILABLE
+            message: Provider is temporarily unavailable.
+            retryable: true
+            requestId: req_example
+            details: []
+            providerHttpStatus: 503
+
+x-business-api-error-map:
+  VALIDATION_ERROR: VALIDATION_ERROR
+  RESOURCE_NOT_FOUND: RESOURCE_NOT_FOUND
+  CONFLICT: CONFLICT
+  IDEMPOTENCY_CONFLICT: IDEMPOTENCY_CONFLICT
+  BUSINESS_RULE_VIOLATION: BUSINESS_RULE_VIOLATION
+  SERVICE_NOT_AVAILABLE: SERVICE_NOT_AVAILABLE
+  INSUFFICIENT_FUNDS: INSUFFICIENT_FUNDS
+  INSUFFICIENT_AVAILABLE_BALANCE: INSUFFICIENT_AVAILABLE_BALANCE
+  RESERVATION_CONFLICT: RESERVATION_CONFLICT
+  CANCELLATION_PREVIEW_STALE: CANCELLATION_PREVIEW_STALE
+  AUTOMATION_STATE_CONFLICT: AUTOMATION_STATE_CONFLICT
+  PROVIDER_UNAVAILABLE: PROVIDER_UNAVAILABLE
+  PROVIDER_TIMEOUT: PROVIDER_TIMEOUT
+  SIGNATURE_INVALID: SIGNATURE_INVALID
+  REPLAY_REJECTED: REPLAY_REJECTED
+  AUTHENTICATION_FAILED: SERVICE_UNAVAILABLE
+  RATE_LIMITED: PROVIDER_UNAVAILABLE
+  SCHEMA_MISMATCH: PROVIDER_UNAVAILABLE
+  UNKNOWN_PROVIDER_ERROR: PROVIDER_UNAVAILABLE
+  REFUND_AMOUNT_EXCEEDED: BUSINESS_RULE_VIOLATION
+
+x-idempotency-policy:
+  keyFormats:
+    orderHold: hold:order:{orderId}:v1
+    giftHold: hold:gift:{giftRequestId}:v1
+    capture: capture:hold:{fundReservationId}:v{fundReservationVersion}
+    release: release:hold:{fundReservationId}:v{fundReservationVersion}
+    fallbackDebit: debit:reservation:{fundReservationId}:v{fundReservationVersion}
+    refund: refund:{originalTransactionId}:{resolutionId}:v1
+  localUniqueConstraint: [provider, operation, idempotencyKey]
+  sameKeySameFingerprint: return-existing-result
+  sameKeyDifferentFingerprint: IDEMPOTENCY_CONFLICT
+  requestFingerprintFields:
+    createHold: [fundReservationId, fundReservationVersion, externalUserId, amount, businessSource, businessReference, expiresAt]
+    captureHold: [holdRef, fundReservationId, fundReservationVersion, amount, businessReference]
+    releaseHold: [holdRef, fundReservationId, fundReservationVersion, reasonCode, amount]
+    createReservationDebit: [fundReservationId, fundReservationVersion, externalUserId, amount, businessSource, businessReference]
+    createRefund: [originalTransactionRef, amount, reasonCode, businessReference]
+
+x-state-transition-policy:
+  hold:
+    UNKNOWN: [UNKNOWN, PENDING, ACTIVE, PARTIALLY_CAPTURED, CAPTURED, RELEASED, EXPIRED, FAILED]
+    PENDING: [PENDING, ACTIVE, PARTIALLY_CAPTURED, CAPTURED, RELEASED, EXPIRED, FAILED]
+    ACTIVE: [ACTIVE, PARTIALLY_CAPTURED, CAPTURED, RELEASED, EXPIRED]
+    PARTIALLY_CAPTURED: [PARTIALLY_CAPTURED, CAPTURED, RELEASED, EXPIRED]
+    CAPTURED: [CAPTURED]
+    RELEASED: [RELEASED]
+    EXPIRED: [EXPIRED]
+    FAILED: [FAILED]
+  transaction:
+    UNKNOWN: [UNKNOWN, PENDING, SUCCEEDED, FAILED]
+    PENDING: [PENDING, SUCCEEDED, FAILED]
+    SUCCEEDED: [SUCCEEDED]
+    FAILED: [FAILED]
+  terminalConflictRule: preserve-first-verified-terminal-state-and-alert
+
+x-expiry-policy:
+  providerNativeHold:
+    businessExpiresBeforeProviderBySeconds: 60
+    insufficientMaximumTtl: choose-local-fallback-before-reservation-creation
+    expiredDuringLifecycle: block-capture-and-do-not-switch-to-fallback-debit
+  localReservationFallback:
+    owner: unified-business-api
+    expiryAction: atomically-release-and-increment-version
+    providerReleaseCall: none
+
+x-reconciliation-policy:
+  scheduleAfterSeconds: [15, 60, 300, 900]
+  staffReviewAfterSeconds: 1800
+  nativeHold: {operation: getHold, lookup: [PROVIDER_HOLD_REF, IDEMPOTENCY_KEY], statuses: [UNKNOWN, PENDING, ACTIVE, PARTIALLY_CAPTURED]}
+  transaction: {operation: getTransaction, lookup: [PROVIDER_REF, IDEMPOTENCY_KEY], statuses: [UNKNOWN, PENDING]}
+  balanceDeficit:
+    calculation: max-reservedMinor-minus-providerBalanceMinor-zero
+    triggers: [periodic-refresh, before-new-reservation, before-fallback-capture, provider-anomaly]
+    actions:
+      - block-new-reservations
+      - preserve-existing-reservations
+      - emit-provider_balance_deficit_alert
+      - create-AUTOMATION_FAILURE-with-reason-PROVIDER_BALANCE_DEFICIT
+      - notify-L2_SUPERVISOR-L3_OPERATIONS-and-L4_ADMIN_OWNER
+    forbidden: [silently-shrink-reservations, direct-debit-without-reservation, auto-release-to-hide-deficit]
+
+x-webhook-policy:
+  verifyBeforeParse: true
+  deduplicateBy: [provider, eventId]
+  duplicateResponse: HTTP-200-without-reapplying
+  holdEvents: [HOLD_CREATED, HOLD_UPDATED, HOLD_CAPTURED, HOLD_RELEASED, HOLD_EXPIRED]
+  transactionEvents: [DEBIT_UPDATED, REFUND_UPDATED]
+  ordering: {preferred: providerSequence, fallback: occurredAt-and-terminal-precedence}
+  unknownReference: quarantine-and-alert
+  expiredHoldRule: expire-once-block-capture-never-create-fallback-debit
+
+x-mock-fixtures:
+  capabilityProfiles:
+    mock-native-hold:
+      mode: PROVIDER_NATIVE_HOLD
+      lifecycle: [create, capture, release, get]
+      maximumTtlSeconds: 86400
+    mock-local-fallback:
+      mode: LOCAL_RESERVATION_FALLBACK
+      lifecycle: [provider-balance, reservation-debit, transaction-get]
+  users:
+    - {bindingCode: BIND-OK, externalUserId: mock-user-ok, providerBalanceMinor: 1000000, currency: CNY, accountStatus: ACTIVE}
+    - {bindingCode: BIND-LOW, externalUserId: mock-user-low, providerBalanceMinor: 100, currency: CNY, accountStatus: ACTIVE}
+    - {bindingCode: BIND-DEFICIT, externalUserId: mock-user-deficit, providerBalanceMinor: 3000, currency: CNY, accountStatus: ACTIVE}
+    - {bindingCode: BIND-SUSPENDED, externalUserId: mock-user-suspended, providerBalanceMinor: 1000000, currency: CNY, accountStatus: SUSPENDED}
+    - {bindingCode: BIND-MISSING, error: RESOURCE_NOT_FOUND}
+  deterministicRules:
+    holdRefPrefix: mock_hold_
+    transactionRefPrefix: mock_txn_
+    pendingResolutionPolls: 2
+    webhookSecret: mock-webhook-secret-not-for-production
+    replayWindowSeconds: 300
+  businessReservationFixtures:
+    - {externalUserId: mock-user-deficit, effectiveReservedMinor: 5000, expectedAvailableMinor: -2000, expectedDeficitMinor: 2000, currency: CNY}
+
+x-contract-tests:
+  - {id: PAY-C01, operation: resolveUser, assertion: binding credential resolves a stable user and is absent from logs}
+  - {id: PAY-C02, operation: getProviderBalance, assertion: adapter returns providerBalanceMinor and never names provider balance availableMinor}
+  - {id: PAY-C03, operation: discoverCapabilities, assertion: native fixture proves create capture release get idempotency and TTL}
+  - {id: PAY-C04, operation: discoverCapabilities, assertion: fallback fixture reports native hold unsupported and queryable idempotent debit}
+  - {id: PAY-C05, operation: createHold, assertion: same key and fingerprint creates one hold and returns it on replay}
+  - {id: PAY-C06, operation: createHold, assertion: same key with changed amount or expiry returns IDEMPOTENCY_CONFLICT}
+  - {id: PAY-C07, operation: createHold, assertion: expiry outside proven limits is rejected before provider mutation}
+  - {id: PAY-C08, operation: captureHold, assertion: capture is idempotent and binds exact fundReservationId and fundReservationVersion}
+  - {id: PAY-C09, operation: releaseHold, assertion: pre-capture cancellation rejection withdrawal or expiry releases once and does not refund}
+  - {id: PAY-C10, operation: getHold, assertion: timeout after hold commit resolves by original key without a second hold}
+  - {id: PAY-C11, operation: createReservationDebit, assertion: missing reservation id or version returns VALIDATION_ERROR before provider contact}
+  - {id: PAY-C12, operation: createReservationDebit, assertion: no adapter path accepts an unbound ORDER or GIFT debit}
+  - {id: PAY-C13, operation: createReservationDebit, assertion: stale reservation version returns RESERVATION_CONFLICT before provider contact}
+  - {id: PAY-C14, operation: createReservationDebit, assertion: fallback capture rechecks fresh provider balance and handles INSUFFICIENT_FUNDS without successful debit}
+  - {id: PAY-C15, operation: getProviderBalance, assertion: out-of-band spend produces deficit handling and blocks new reservations}
+  - {id: PAY-C16, operation: createRefund, assertion: refund is allowed only after capture and never replaces release}
+  - {id: PAY-C17, operation: getTransaction, assertion: unknown or pending fallback debit and refund reconcile without a new write key}
+  - {id: PAY-C18, operation: verifyWebhook, assertion: invalid signature and expired timestamp are rejected before parse or mutation}
+  - {id: PAY-C19, operation: verifyWebhook, assertion: duplicate event id is acknowledged and applied once}
+  - {id: PAY-C20, operation: verifyWebhook, assertion: stale hold or transaction events cannot downgrade a terminal state}
+  - {id: PAY-C21, operation: business-order-flow, assertion: order reserves on submit and captures on completion}
+  - {id: PAY-C22, operation: business-gift-flow, assertion: gift reserves on request and captures on approval}
+  - {id: PAY-C23, operation: business-cancellation-flow, assertion: before capture release and after capture refund}
+  - {id: PAY-C24, operation: business-readiness-flow, assertion: both customer and player readiness are required and readiness never captures}
+  - {id: PAY-C25, operation: all, assertion: credentials signatures raw bodies and full external user identifiers are redacted}
+  - {id: PAY-C26, operation: funding-mode-selection, assertion: one reservation never switches between native hold and local fallback}
+  - {id: PAY-C27, operation: verifyWebhook, assertion: HOLD_EXPIRED expires once blocks capture and never triggers fallback debit}
+  - {id: PAY-C28, operation: captureHold, assertion: partial resolution captures approved amount and releases the remainder}
+  - {id: PAY-C29, operation: business-balance-summary, assertion: reservedMinor sums active reservations and availableMinor equals providerBalanceMinor minus reservedMinor; a new reservation shortfall returns INSUFFICIENT_AVAILABLE_BALANCE}
+  - {id: PAY-C30, operation: business-capture-side-effects, assertion: consumption and PROMOTER_FIRST_PURCHASE or PLAYER_LIFETIME facts follow successful capture only}
+  - {id: PAY-C31, operation: releaseHold, assertion: every hold response reports releasedAmount and captured plus released plus remaining equals original amount}
+  - {id: PAY-C32, operation: local-reservation-concurrency, assertion: concurrent order and gift reservations serialize by provider external user and currency}
+  - {id: PAY-C33, operation: local-reservation-deficit, assertion: provider balance deficit pauses new reservations blocks capture and creates an auditable staff alert}
+  - {id: PAY-C34, operation: native-hold-capability-gate, assertion: production native mode is blocked without vendor lifecycle expiry idempotency lookup and isolation evidence}
+  - {id: PAY-C35, operation: local-fallback-capability-gate, assertion: production fallback is blocked without L4 approval provider balance debit idempotency lookup and out-of-band controls evidence}
