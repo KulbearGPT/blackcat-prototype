@@ -251,7 +251,7 @@ workspace/
   - 禁止扩展：不自动扩圈、候补或实现复杂排序算法。
   - 进度记录（2026-07-17）：已完成 `@blackcat/api/dispatch`、`dispatchOrder`、`expireDispatchAttempt`、`InMemoryDispatchStore`、`PostgresDispatchStore`、`InMemoryDispatchPlayerPool`、`PostgresDispatchPlayerPool`、`buildApiServer({ dispatch })` 和 runtime dispatch wiring。系统任务可通过统一 API 创建 `dispatch_attempts`、`dispatch_candidates`、`DISPATCH_MESSAGE` 与 `DISPATCH_TIMEOUT` outbox；5 分钟超时只结束当前轮次并保持订单 `PENDING_DISPATCH`，不释放预留、不自动扩圈。Bot 侧已新增集中派单卡片 renderer、accept/decline API client 与 Sapphire `dispatch-buttons` handler。`npx vitest run tests/m2-us-02-api.spec.ts tests/m2-us-02-bot.spec.ts tests/m2-us-02-db.spec.ts` 3 files / 9 tests 通过，`npm run typecheck` 通过，`npm test` 28 files / 171 tests 通过。证据：`evidence/P0/M2-US-02/summary.md`。Discord credential 暂未提供，真实集中派单频道 E2E 未执行；唯一接单和频道入场留给 M2-US-03。
 
-- [ ] **M2-US-03：并发唯一接单与订单频道入场**
+- [x] **M2-US-03：并发唯一接单与订单频道入场**
   - 前置依赖：M2-US-02
   - 责任类型：backend_bot
   - 实现结果：实现条件更新接单、活跃订单约束、订单/attempt 原子写、OrderAccepted Outbox、频道权限添加和按钮失效。
@@ -260,8 +260,9 @@ workspace/
   - 验收用例：AT-DSP-003;AT-DSP-004
   - 完成定义：数据库并发、API 集成和 Discord E2E 通过。
   - 禁止扩展：不支持一单多陪玩或绕过活跃订单约束。
+  - 进度记录（2026-07-17）：已完成 `acceptOrder`、`declineOrderOffer`、`POST /api/v1/orders/:orderId/accept`、`POST /api/v1/orders/:orderId/decline`、in-memory 和 Postgres 接单/拒单事务、OrderAccepted `PANEL_SYNC` outbox、接单后私密订单频道权限计划和集中派单卡片按钮失效。Postgres 并发测试覆盖两个候选同时接同一 active attempt 只允许一个成功，失败方冲突，未接中候选标记 `LOST_RACE`；陪玩已有活跃单时返回 `PLAYER_NOT_ELIGIBLE` 且订单保持 `PENDING_DISPATCH`；拒单只标记本人候选为 `DECLINED`。`npx vitest run tests/m2-us-03-api.spec.ts tests/m2-us-03-bot.spec.ts tests/m2-us-03-db.spec.ts` 3 files / 9 tests 通过，`npm run typecheck` 通过，`npm test` 31 files / 180 tests 通过。证据：`evidence/P0/M2-US-03/summary.md`。Discord credential 暂未提供，真实测试 Guild 中接单按钮、频道权限修改和集中派单消息修改 E2E 未执行。
 
-- [ ] **M2-US-04：双方准备、申请完成与用户确认**
+- [x] **M2-US-04：双方准备、申请完成与用户确认**
   - 前置依赖：M2-US-03;M0-US-05
   - 责任类型：fullstack_bot_api
   - 实现结果：实现双方 READY、ACCEPTED→IN_SERVICE、申请完成、用户确认、Actor 归属、时间戳、面板动作和确认超时任务；旧 start 调用必须拒绝并审计。
@@ -270,6 +271,7 @@ workspace/
   - 验收用例：AT-RDY-001;AT-SVC-001;AT-SVC-002
   - 完成定义：状态机、readiness、超时 Job 和双方 Discord E2E 通过。
   - 禁止扩展：不做单方开始、自动确认、评价、加时或按分钟自动计时。
+  - 进度记录（2026-07-17）：已完成 `setOrderReadiness`、`requestOrderCompletion`、`confirmOrder`、`expireOrderCompletionConfirmation`、`rejectLegacyStartService`，以及 `PUT /api/v1/orders/:orderId/readiness`、`POST /api/v1/orders/:orderId/request-completion`、`POST /api/v1/orders/:orderId/confirm`、`POST /api/v1/orders/:orderId/start`。Postgres 事务覆盖双方 READY 后才从 `ACCEPTED` 进入 `IN_SERVICE`，陪玩申请完成后进入 `PENDING_CONFIRMATION`，用户确认完成时原子捕获订单预留、生成 `ORDER_CHARGE` 消费、PENDING 陪玩收益和符合条件的 PENDING 返佣；完成确认超时只创建唯一 `COMPLETION_REVIEW` 客服任务且不结算；旧单方 start 调用固定 403 并审计。Bot 侧已接入 `bc:service:ready/request-completion/confirm` 自定义 ID、HTTP API client 和 Sapphire Button Handler。`npx vitest run tests/m2-us-04-api.spec.ts tests/m2-us-04-bot.spec.ts tests/m2-us-04-db.spec.ts` 3 files / 18 tests 通过，`npm run typecheck`、`npm run db:validate`、`npm run db:verify:migration` 通过，`npm test` 34 files / 198 tests 通过。证据：`evidence/P0/M2-US-04/summary.md`。Discord credential 暂未提供，真实测试 Guild 中双方点击与消息更新 E2E 未执行。
 
 - [ ] **M2-US-05：默认自动取消与异常客服任务**
   - 前置依赖：M1-US-05;M2-US-03;M2-US-04;M0-US-05
