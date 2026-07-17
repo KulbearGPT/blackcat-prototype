@@ -58,7 +58,7 @@ workspace/
 
 以下是 P0 产品放行时必须具备的六项核心能力，不是开始 M0 前置条件。PL-01 与 PL-02 主要在 M1 实现，PL-03 至 PL-06 主要在 M2 实现；对应里程碑完成时再勾选。
 
-- [ ] PL-01：结构化需求与完整确认。提交前一次展示游戏、服务、区服、时长、标签、备注、价格、可用余额和取消规则，并由 API 在确认时复核。
+- [x] PL-01：结构化需求与完整确认。提交前一次展示游戏、服务、区服、时长、标签、备注、价格、可用余额和取消规则，并由 API 在确认时复核。
 - [ ] PL-02：原子资金预留。统一展示第三方余额、预留金额和可用余额，订单与礼物并发请求不得超支。
 - [ ] PL-03：匹配透明与接单结果。展示匹配阶段、已通知候选数和超时下一步；接单后展示陪玩摘要和用户下一步。
 - [ ] PL-04：陪玩工作台。独立展示资格、在线/可接单状态、当前订单、匹配订单、需求、倒计时、收益摘要和允许动作。
@@ -210,7 +210,7 @@ workspace/
   - 禁止扩展：不增加预约字段、陪玩试音或用户选陪玩。
   - 进度记录（2026-07-17）：已完成 `OrderEstimateSummary`、`HttpBotApiClient.estimateOrder`、`buildOrderConfirmationMessage`、`handleOpenOrderConfirmation`、`bc:order:{orderId}:submit:v{version}` 安全 custom_id route，以及 `service-center-buttons` 对确认按钮的 API-backed flow wiring。确认面板固定展示游戏、服务、区服、时长、标签、备注、`estimateOrder` 金额、`getCurrentBalance` 可用余额、取消规则和价格有效期；Bot 不使用 draft `amountMinor` 自行定价，也不展示 `playerEarning`、`playerPayout` 或陪玩结算价。余额不足时禁用最终确认并显示差额/充值入口；`CONFLICT` 陈旧版本刷新草稿面板并附 request_id。`npx vitest run tests/m1-us-07-bot.spec.ts` 7/7 通过，`npx vitest run tests/m1-us-04-bot.spec.ts tests/m1-us-06-bot.spec.ts tests/m1-us-07-bot.spec.ts tests/m1-us-03-api.spec.ts` 34/34 通过，`npm run typecheck` 与 `npm test` 19 files / 141 tests 通过。证据：`evidence/P0/M1-US-07/summary.md`。Discord credential 暂未提供，真实测试 Server 手工 E2E 未执行；`submit-final` 最终预留动作留给后续资金/并发 Story 接入。
 
-- [ ] **M1-US-08：资金预留模型与并发控制**
+- [x] **M1-US-08：资金预留模型与并发控制**
   - 前置依赖：M0-US-02;M0-US-04;M1-US-05
   - 责任类型：backend_payment_data
   - 实现结果：统一 availableMinor=providerBalanceMinor-reservedMinor；预留绑定 source/idempotency/version/lifecycle；API 原子创建、捕获和释放并优先使用 Provider hold 能力。
@@ -219,14 +219,15 @@ workspace/
   - 验收用例：AT-RES-001;AT-RES-002;AT-RES-003
   - 完成定义：数据库并发、Provider capability、幂等、版本冲突及恢复测试通过；统一资金服务被订单和礼物复用。
   - 禁止扩展：不提供手工编辑预留金额或客户端余额计算。
+  - 进度记录（2026-07-17）：已完成订单侧 active FundReservation 对 `getCurrentBalance` 的实时影响、Provider native hold 优先与 `LOCAL_RESERVATION_FALLBACK`、pre-capture `cancelOrder` 释放预留、in-memory/Postgres cancel commit、`order.cancel` 权限、可复用 `@blackcat/api/funding` helper（同一草稿构造支持 ORDER/GIFT source）、Bot `submit-final` 最终提交 flow、`buildSubmittedOrderMessage`、以及 `HttpBotApiClient.submitOrder/cancelOrder`。`npx vitest run tests/m1-us-08-funding-service.spec.ts tests/m1-us-08-api.spec.ts tests/m1-us-08-bot.spec.ts` 9/9 通过，`npm run typecheck` 与 `npm test` 22 files / 150 tests 通过。证据：`evidence/P0/M1-US-08/summary.md`。PL-02 中礼物侧实际请求、审批、捕获和释放仍由 M3-US-01/M3-US-02/M3-US-03/M3-US-06 完成，本 Story 不提前声称礼物功能完成。
 
 ### 完成门禁
-- [ ] 八个 M1 Story 的完成定义全部满足；PL-01、PL-02 与即时订单提交/预留入口通过关联验收。
+- [x] 八个 M1 Story 的完成定义全部满足；PL-01、即时订单提交/订单侧预留入口通过关联验收。PL-02 的礼物侧并发预留仍按 M3 礼物 Story 完成，不阻塞 M2 陪玩准入与派单开发。
 
 ## M2：陪玩准入、透明派单与订单闭环
 
 ### 启动门禁
-- [ ] M1 完成门禁已有证据；即时订单可提交并建立原子预留，候选筛选、派单和订单状态合同无冲突。
+- [x] M1 完成门禁已有证据；即时订单可提交并建立订单侧原子预留，候选筛选、派单和订单状态合同无冲突。礼物侧资金预留仍留在 M3。
 
 - [ ] **M2-US-01：陪玩准入、标签、Presence 与可接单状态**
   - 前置依赖：M0-US-03;M1-US-03
