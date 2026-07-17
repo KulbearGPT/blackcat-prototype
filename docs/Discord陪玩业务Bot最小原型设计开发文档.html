@@ -1,0 +1,1740 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%231e3b4b'/%3E%3Cpath d='M18 17h28v30H18z' fill='%23fff'/%3E%3Cpath d='M25 25h14v4H25zm0 10h14v4H25z' fill='%23c87338'/%3E%3C/svg%3E">
+  <title>Discord 陪玩业务 Bot 最小原型设计开发文档</title>
+  <style>
+    :root {
+      --ink: #182026;
+      --muted: #5f6b73;
+      --paper: #ffffff;
+      --canvas: #eef1f3;
+      --line: #d7dde1;
+      --soft: #f5f7f8;
+      --brand: #28536b;
+      --brand-2: #2f7d6d;
+      --accent: #c87338;
+      --danger: #a33a3a;
+      --code: #162128;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 24px;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      letter-spacing: 0;
+    }
+
+    button, a { font: inherit; }
+    a { color: var(--brand); }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 52px;
+      padding: 8px 24px;
+      color: #fff;
+      background: #152630;
+      border-bottom: 3px solid var(--accent);
+    }
+
+    .topbar-group { min-width: 0; display: flex; align-items: center; gap: 12px; }
+    .topbar-title { font-weight: 700; }
+    .docs-home-link {
+      flex: 0 0 auto;
+      padding: 5px 8px;
+      color: #fff;
+      border: 1px solid rgba(255,255,255,.45);
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .docs-home-link:hover { background: rgba(255,255,255,.1); }
+
+    .print-button {
+      padding: 7px 12px;
+      color: #fff;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,.55);
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 230px minmax(0, 940px);
+      gap: 24px;
+      justify-content: center;
+      align-items: start;
+      padding: 28px 24px 72px;
+    }
+
+    .toc {
+      position: sticky;
+      top: 80px;
+      max-height: calc(100vh - 104px);
+      overflow: auto;
+      padding: 14px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+
+    .toc strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .toc a {
+      display: block;
+      padding: 5px 7px;
+      color: #334149;
+      text-decoration: none;
+      border-left: 2px solid transparent;
+    }
+
+    .toc a:hover {
+      color: var(--brand);
+      background: var(--soft);
+      border-left-color: var(--accent);
+    }
+
+    main {
+      min-width: 0;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      box-shadow: 0 8px 28px rgba(18, 34, 43, .08);
+    }
+
+    .cover {
+      min-height: 550px;
+      padding: 72px 64px 56px;
+      color: #fff;
+      background: #1e3b4b;
+      border-bottom: 8px solid var(--accent);
+    }
+
+    .kicker {
+      margin: 0 0 36px;
+      color: #b9d8d0;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .cover h1 {
+      max-width: 760px;
+      margin: 0 0 20px;
+      font-size: clamp(34px, 5vw, 56px);
+      line-height: 1.17;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      max-width: 720px;
+      margin: 0;
+      color: #dbe8ec;
+      font-size: 18px;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 70px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(255,255,255,.28);
+    }
+
+    .meta span {
+      display: block;
+      color: #9fc1ca;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .meta b { display: block; margin-top: 4px; font-weight: 600; }
+
+    section {
+      padding: 42px 64px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    section:last-child { border-bottom: 0; }
+
+    h2 {
+      margin: 0 0 22px;
+      color: #203a48;
+      font-size: 27px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 28px 0 10px;
+      color: #294c5f;
+      font-size: 18px;
+      line-height: 1.35;
+      letter-spacing: 0;
+    }
+
+    h4 {
+      margin: 20px 0 8px;
+      font-size: 15px;
+      letter-spacing: 0;
+    }
+
+    p { margin: 8px 0 14px; }
+    ul, ol { margin: 8px 0 16px; padding-left: 22px; }
+    li { margin: 4px 0; }
+
+    .lead {
+      color: #34464f;
+      font-size: 17px;
+    }
+
+    .callout {
+      margin: 18px 0;
+      padding: 16px 18px;
+      background: #edf6f3;
+      border-left: 4px solid var(--brand-2);
+      border-radius: 0 var(--radius) var(--radius) 0;
+    }
+
+    .callout.warn {
+      background: #fbf3ea;
+      border-left-color: var(--accent);
+    }
+
+    .callout.danger {
+      background: #fbefef;
+      border-left-color: var(--danger);
+    }
+
+    .chips { margin: 12px 0 20px; }
+
+    .chip {
+      display: inline-block;
+      margin: 4px 5px 4px 0;
+      padding: 3px 9px;
+      color: #31505f;
+      background: #e8eef1;
+      border: 1px solid #cdd8dd;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .grid-2, .grid-3 {
+      display: grid;
+      gap: 14px;
+      margin: 16px 0;
+    }
+
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+    .box {
+      padding: 16px;
+      background: var(--soft);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+
+    .box h3, .box h4 { margin-top: 0; }
+    .box p:last-child, .box ul:last-child { margin-bottom: 0; }
+
+    .priority {
+      display: inline-block;
+      min-width: 32px;
+      margin-right: 6px;
+      padding: 1px 6px;
+      color: #fff;
+      background: var(--brand-2);
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    table {
+      width: 100%;
+      margin: 16px 0 24px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 10px 11px;
+      vertical-align: top;
+      border: 1px solid var(--line);
+      text-align: left;
+    }
+
+    th {
+      color: #263a45;
+      background: #e9eef0;
+      font-weight: 700;
+    }
+
+    tbody tr:nth-child(even) { background: #fafbfb; }
+
+    code {
+      padding: 1px 4px;
+      color: #234050;
+      background: #edf1f3;
+      border-radius: 3px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .9em;
+    }
+
+    pre {
+      overflow: auto;
+      margin: 14px 0 22px;
+      padding: 18px;
+      color: #dfe8ec;
+      background: var(--code);
+      border-radius: var(--radius);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre;
+    }
+
+    .flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin: 18px 0;
+    }
+
+    .flow span {
+      padding: 7px 10px;
+      background: #edf2f4;
+      border: 1px solid #cbd7dc;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .flow i { color: var(--accent); font-style: normal; font-weight: 800; }
+
+    .state-table td:first-child,
+    .api-table td:first-child,
+    .model-table td:first-child {
+      white-space: nowrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-weight: 700;
+    }
+
+    .method {
+      display: inline-block;
+      min-width: 52px;
+      padding: 2px 5px;
+      color: #fff;
+      background: var(--brand);
+      border-radius: 3px;
+      font-size: 10px;
+      text-align: center;
+    }
+
+    .checklist { list-style: none; padding-left: 0; }
+    .checklist li { position: relative; padding-left: 26px; }
+    .checklist li::before {
+      position: absolute;
+      left: 0;
+      top: 2px;
+      content: "□";
+      color: var(--brand-2);
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .small { color: var(--muted); font-size: 12px; }
+
+    .footer {
+      padding: 28px 64px;
+      color: #dbe7eb;
+      background: #1a303b;
+      font-size: 13px;
+    }
+
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: minmax(0, 860px); padding: 0; }
+      .toc { display: none; }
+      main { border: 0; box-shadow: none; }
+    }
+
+    @media (max-width: 680px) {
+      .topbar { padding: 8px 14px; }
+      .topbar-group { gap: 7px; }
+      .topbar-title { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+      .docs-home-link { padding: 5px 6px; font-size: 11px; }
+      .print-button { padding: 6px; font-size: 11px; }
+      .cover, section { padding: 34px 22px; }
+      .cover { min-height: auto; }
+      .cover h1 { font-size: 35px; }
+      .meta, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .meta { margin-top: 42px; }
+      table { display: block; overflow-x: auto; }
+      .footer { padding: 24px 22px; }
+    }
+
+    @media print {
+      @page { size: A4; margin: 14mm 13mm 16mm; }
+      body { color: #000; background: #fff; font-size: 10.5pt; }
+      .topbar, .toc { display: none !important; }
+      .layout { display: block; padding: 0; }
+      main { border: 0; box-shadow: none; }
+      .cover {
+        min-height: 245mm;
+        padding: 45mm 20mm;
+        color: #fff !important;
+        background: #1e3b4b !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        page-break-after: always;
+      }
+      section { padding: 8mm 0; }
+      section + section { page-break-before: auto; }
+      h2, h3 { break-after: avoid; }
+      table, pre, .box, .callout { break-inside: avoid; }
+      th { background: #e9eef0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .footer { color: #000; background: #fff; border-top: 1px solid #999; }
+      a { color: #000; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-group"><a class="docs-home-link" href="index.html">文档中心</a><div class="topbar-title">Discord 陪玩业务 Bot · Minimal Prototype</div></div>
+    <button class="print-button" type="button" onclick="window.print()" aria-label="打印文档">打印 / 导出 PDF</button>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" aria-label="文档目录">
+      <strong>目录</strong>
+      <a href="#summary">1. 文档摘要</a>
+      <a href="#scope">2. 原型范围</a>
+      <a href="#plain-flows">3. 功能流程（白话版）</a>
+      <a href="#architecture">4. 技术架构</a>
+      <a href="#roles">5. 角色与权限</a>
+      <a href="#flows">6. 核心用户流程</a>
+      <a href="#ui">7. Discord UI</a>
+      <a href="#states">8. 状态机</a>
+      <a href="#data">9. 数据模型</a>
+      <a href="#api">10. API 草案</a>
+      <a href="#events">11. 事件与权限</a>
+      <a href="#errors">12. 错误处理</a>
+      <a href="#admin">13. 客服管理 Dashboard</a>
+      <a href="#deploy">14. 部署与配置</a>
+      <a href="#testing">15. 测试策略</a>
+      <a href="#milestones">16. 里程碑</a>
+      <a href="#acceptance">17. 验收标准</a>
+      <a href="#decisions">18. 开发前确认</a>
+    </nav>
+
+    <main>
+      <article class="cover">
+        <p class="kicker">Prototype Design &amp; Development Specification</p>
+        <h1>Discord 陪玩业务 Bot<br>最小原型设计开发文档</h1>
+        <p class="subtitle">以“统一业务 API + Discord 交互 + 运营工作台”为核心，规划验证订单与礼物资金预留、数字化派单、双方就绪、客服接管、四级权限与可追溯运营记账的 P0 闭环。</p>
+        <div class="meta">
+          <div><span>文档版本</span><b>v0.7 Prototype</b></div>
+          <div><span>面向对象</span><b>产品、开发、运营、测试</b></div>
+          <div><span>日期</span><b>2026-07-16</b></div>
+        </div>
+      </article>
+
+      <section id="summary">
+        <h2>1. 文档摘要</h2>
+        <p class="lead">本文档是计划中 P0 开发的主规格，不表示产品已实现。Sapphire Bot 与 Dashboard 都是统一业务 API 的适配器客户端，不保存或重复实现业务规则；自有系统负责订单、资金预留、礼物、消费、返佣、陪玩收益、权限、审计和运营视图；第三方继续掌握用户账户事实、充值、支付、退款和真实余额。</p>
+
+        <div class="callout">
+          <strong>核心原则：</strong>Discord 频道和 Dashboard 只承载交互。统一 API 负责业务状态、权限、幂等和并发；订单在提交时预留、完成时捕获，礼物在请求时预留、批准时捕获。资金摘要只使用 <code>providerBalanceMinor</code>、<code>reservedMinor</code>、<code>availableMinor</code>，其中 <code>availableMinor = providerBalanceMinor - reservedMinor</code>。
+        </div>
+
+        <h3>1.1 原型要证明什么</h3>
+        <ul>
+          <li>普通用户无需学习大量斜杠命令，也能在 3–4 个主要步骤内完成下单。</li>
+          <li>系统能创建仅相关人员可见的订单频道，并使用一条可持续更新的操作面板完成订单生命周期。</li>
+          <li>符合标签、Discord 在线且设置为“可接单”的陪玩能在集中派单频道抢单，且第一位成功接单者唯一获得订单。</li>
+          <li>用户和陪玩分别确认就绪，只有双方就绪才进入服务中；任何一方超时都转客服。</li>
+          <li>礼物请求创建时就预留资金；客服只核对品类、目标和沟通结果，有权限的 L2–L4 批准时由 API 捕获既有预留，不人工计算余额。</li>
+          <li><code>PROMOTER_FIRST_PURCHASE</code> 和 <code>PLAYER_LIFETIME</code> 两种互斥返佣计划可被准确结算、冲正和审计，且对被推荐用户严格保密。</li>
+          <li>下单、派单、取消和完成默认自动，关键阶段都可被客服接管、暂停、转派或提交审批。</li>
+          <li>统一运营工作台提供数字化派单、四级细粒度 RBAC/审计、自动运营记账轨迹和八项最小指标。</li>
+        </ul>
+
+        <h3>1.2 推荐技术取舍</h3>
+        <div class="grid-3">
+          <div class="box"><h4>业务形态</h4><p>模块化单体。一个代码库，按用户、订单、派单、礼物、返佣拆模块。</p></div>
+          <div class="box"><h4>运行进程</h4><p>统一业务 API、Dashboard 前端与 Sapphire Discord Bot 分工运行；只有 API 访问 PostgreSQL，Bot 和 Dashboard 都通过 API 完成业务。</p></div>
+          <div class="box"><h4>资金边界</h4><p>优先使用供应商 hold/capture/release；不支持时由统一 API 维护本地预留，但不复制第三方真实余额。</p></div>
+        </div>
+      </section>
+
+      <section id="scope">
+        <h2>2. 原型范围</h2>
+
+        <h3>2.1 必须实现（P0）</h3>
+        <table>
+          <thead><tr><th>模块</th><th>最小能力</th></tr></thead>
+          <tbody>
+            <tr><td>公共入口</td><td>固定消息提供“创建订单”和“我的服务中心”两个按钮；不要求用户记忆命令。</td></tr>
+            <tr><td>账户绑定</td><td>将 Discord 用户 ID 与第三方用户 ID 绑定；可查询余额与基础资料。</td></tr>
+            <tr><td>服务目录与计价</td><td>配置游戏、服务、区服、计价单位、最低单位数、客户单价和陪玩结算单价；订单提交时保存价格版本与快照。</td></tr>
+            <tr><td>私密订单</td><td>点击后创建用户、Bot、管理员可见的私密频道；生成唯一订单与常驻面板。</td></tr>
+            <tr><td>订单操作</td><td>首版仅支持即时单；提交前一次确认需求、价格、资金摘要和取消规则；提交时预留，双方就绪后服务，用户确认完成时捕获。</td></tr>
+            <tr><td>陪玩准入与状态</td><td>陪玩必须审核为 ACTIVE；本人可切换“可接单 / 忙碌”，系统同时参考 Discord 在线状态和活跃订单。</td></tr>
+            <tr><td>自动派单</td><td>按游戏/服务标签筛选候选人，在集中派单频道 @ 对应人员；第一位接单者胜出。</td></tr>
+            <tr><td>接单与双方就绪</td><td>接单成功后展示陪玩资料摘要和下一步；用户与陪玩分别确认就绪，双方都就绪才自动进入 <code>IN_SERVICE</code>。</td></tr>
+            <tr><td>陪玩工作台</td><td>提供独立必备界面，展示资格、在线/可接单状态、当前订单、匹配订单、需求详情、倒计时、收益摘要和下一步动作。</td></tr>
+            <tr><td>礼物系统</td><td>用户从符合条件的订单面板选择礼物，接收陪玩由订单锁定；请求时立即预留，客服核对品类、目标和沟通结果，L2–L4 批准时由 API 捕获预留，然后记账与播报。</td></tr>
+            <tr><td>客服处理</td><td>集中展示送礼、订单协助、取消协助和异常任务；送礼强制人工确认，其他流程默认自动但可被客服接管。</td></tr>
+            <tr><td>消费历史</td><td>统一展示订单与礼物消费记录、时间、金额、对象和状态。</td></tr>
+            <tr><td>陪玩收益</td><td>订单完成或人工结案后，按订单保存的结算价生成待确认收益；支持确认、人工标记支付和退款冲正，不自动提现。</td></tr>
+            <tr><td>返佣计划</td><td><code>PROMOTER_FIRST_PURCHASE</code>（老板带新）与 <code>PLAYER_LIFETIME</code> 互斥；支持绑定、结算、冲正、受益人自查和被推荐人保密。</td></tr>
+            <tr><td>统一运营工作台</td><td>整合任务、订单、用户、陪玩、派单、预留、消费、退款、收益、礼物、返佣、审批和审计；按四级权限决定数据范围与操作。</td></tr>
+            <tr><td>Bot 基础配置</td><td>L3/L4 通过 <code>/bot-config</code> 管理频道路由、通知、时限和开关；L4 额外管理 Role 映射。所有配置由统一 API 校验、版本化和审计。</td></tr>
+            <tr><td>运营记账与指标</td><td>余额快照、预留、消费、退款、陪玩收益、返佣与冲正自动进入同一业务时间线，并提供八项 P0 最小运营指标。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>2.2 启动前最优先六项</h3>
+        <table>
+          <thead><tr><th>稳定 ID</th><th>必须锁定的 P0 能力</th><th>验收焦点</th></tr></thead>
+          <tbody>
+            <tr><td><span class="priority">PL-01</span></td><td>结构化需求与完整确认：游戏、服务、区服、时长、标签、备注、价格、可用余额和取消规则在提交前一次展示。</td><td>用户不需跨页拼接信息；确认后仍由 API 重新校验。</td></tr>
+            <tr><td><span class="priority">PL-02</span></td><td>原子资金预留：摘要统一显示第三方账户余额、预留金额和可用余额；<code>availableMinor = providerBalanceMinor - reservedMinor</code>。</td><td>订单和礼物并发请求不能超支，<code>reservedMinor</code> 来自有效预留合计。</td></tr>
+            <tr><td><span class="priority">PL-03</span></td><td>匹配透明与接单结果：显示匹配阶段、已通知候选数、超时下一步；接单后显示陪玩资料摘要和用户下一步。</td><td>派单进度可见，且并发接单始终只有一名胜者。</td></tr>
+            <tr><td><span class="priority">PL-04</span></td><td>陪玩工作台：独立显示资格、在线/可接单状态、当前订单、匹配订单、需求详情、倒计时、收益摘要和下一步动作。</td><td>陪玩无需依赖管理员查询日常接单信息。</td></tr>
+            <tr><td><span class="priority">PL-05</span></td><td>双方就绪再开始：用户和陪玩分别确认就绪，两者都就绪才自动进入服务中，超时转客服。</td><td>不存在陪玩单方开始计费的正常路径。</td></tr>
+            <tr><td><span class="priority">PL-06</span></td><td>取消影响预览：执行取消或申请客服前，显示可自动处理性、预计释放/退款金额、处理方式和时效。</td><td>预览不构成承诺；执行结果仍由 API 按最新版本原子校验。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>2.3 下一阶段与 Nice to Have</h3>
+        <p>下一阶段统一编号为 <code>P1-01</code> 至 <code>P1-06</code>：陪玩档案展示与试音/审核材料、用户选择/指定陪玩、预约与排班、更完整的经营/对账/导出、多服务器或多渠道接入、移动端运营和通知中心。Nice to Have 包括额外登录、白标/自定义域名、多租户/复杂代理层级、大范围连接器、营销自动化、VIP、优惠券和活动系统。详细排序与边界统一见同交付包《下一阶段功能路线图》，本文不展开；P0 的 <code>PL-01</code> 至 <code>PL-06</code> 仍专指六个启动门禁。</p>
+
+        <h3>2.4 明确非目标</h3>
+        <ul>
+          <li>不自建充值、支付、退款、钱包或余额账本，不存储银行卡等支付敏感信息。</li>
+          <li>本地 <code>FundReservation</code> 仅是业务预留事实，不是可手工编辑的钱包余额，也不取代第三方账户事实。</li>
+          <li>不做多级返佣、公开通用推荐计划、自动提现、税务处理、代理层级或返佣资金发放。</li>
+          <li>P0 不做预约单、排班日历、陪玩试音/用户选择或指定陪玩、智能推荐算法、多人订单、动态竞价或跨服务器派单。</li>
+          <li>不做优惠券、VIP、会员等级、独立客服工单产品、复杂客服 SLA、评价体系和完整财务报表。</li>
+          <li>不保证在 Bot 离线期间继续提供 Discord 交互；后台数据与外部回调仍应可保存。</li>
+        </ul>
+
+        <div class="callout warn">
+          <strong>Prototype 限制：</strong>第一版只支持单个 Discord Server、单币种、每个订单一名陪玩、每名用户最多一个未结束订单频道。超出范围由管理员后台人工处理。
+        </div>
+      </section>
+
+      <section id="plain-flows">
+        <h2>3. 功能流程（给非技术人员看的白话版）</h2>
+        <p class="lead">这一节只解释“谁在什么时候做什么，以及最后会看到什么”。系统内部状态、数据库和 API 细节从下一节开始。</p>
+
+        <div class="callout">
+          <strong>整体原则：</strong>能自动完成的事情默认自动完成；用户随时可以点“联系客服”；遇到余额、权限、退款或争议等异常时，系统自动把事情交给客服。送礼因为涉及对象、品类和公开播报，必须先由客服核对，并由有审批权限的主管或管理员批准。
+        </div>
+
+        <h3>3.1 用户第一次使用</h3>
+        <p>用户在公共频道点击“创建订单”或“我的服务中心”。如果 Discord 账号还没有绑定业务账号，Bot 会请用户填写一次性绑定码。绑定成功后，用户可以看到第三方账户余额、预留金额、可用余额、进行中订单、消费历史和自己作为受益人的返佣/收益摘要，不需要学习斜杠命令。</p>
+
+        <h3>3.2 下单</h3>
+        <div class="flow"><span>点击创建订单</span><i>→</i><span>进入私密频道</span><i>→</i><span>填写结构化需求</span><i>→</i><span>一次确认需求/价格/余额/取消</span><i>→</i><span>预留并派单</span></div>
+        <p>用户点击“创建订单”后，Bot 建立一个只有用户、Bot 和客服能看到的私密订单频道。首版只支持“尽快开始”的即时单；用户填写游戏、服务、区服、时长、标签和备注。提交前页面一次展示完整需求、价格、第三方账户余额、预留金额、可用余额和取消规则。确认提交时 API 原子创建订单预留，不立即扣款；无法自动处理时交给客服。</p>
+
+        <h3>3.3 派单、接单和服务完成</h3>
+        <p>订单提交后，Bot 只寻找已经审核为 ACTIVE、标签匹配、Discord 在线、标记为“可接单”且没有活跃订单的陪玩。用户可看到匹配阶段、已通知候选数和超时后的下一步。第一位成功接单者进入私密订单频道，用户看到陪玩资料摘要。用户和陪玩分别点击“我已就绪”，双方都就绪才自动进入服务中。陪玩申请完成后由用户确认；确认时 API 捕获订单预留，然后记录净消费、陪玩收益和符合条件的返佣。30 分钟未确认则转客服，不自动完成或捕获。</p>
+
+        <h3>3.4 取消订单</h3>
+        <p>用户在执行取消或申请客服前，先看到该状态能否自动处理、预计释放或退款金额、处理方式和时效。草稿无资金动作；已提交但未捕获的订单取消时释放预留。已开始、争议或需部分结案时，预留保持不变并转客服；结案决议原子捕获应消费部分、释放剩余部分，并明确陪玩收益。预览只是预计，最终由 API 按最新状态、版本和幂等键执行。</p>
+
+        <h3>3.5 送礼物</h3>
+        <div class="flow"><span>选择礼物（目标由订单锁定）</span><i>→</i><span>预留资金并创建任务</span><i>→</i><span>L1+ 核对</span><i>→</i><span>有权限的 L2/L3/L4 批准</span><i>→</i><span>捕获与记账</span><i>→</i><span>公开播报</span></div>
+        <ol>
+          <li>用户从已接单、服务中、待确认或完成后 24 小时内的订单面板选择礼物；接收陪玩由订单锁定，不允许用户另选。若价格超过可用余额，确认按钮禁用并显示差额与充值入口。</li>
+          <li>用户确认时，API 立即创建礼物预留和客服任务，防止并发礼物或订单超支；此时尚未捕获消费。</li>
+          <li>客服卡片显示礼物、目标、来源订单或“服务中心”来源、用户联系方式、语音频道链接、预留状态、有效期和可执行动作。</li>
+          <li>L1 或更高等级客服核对品类、目标和沟通结果，然后提交审批；客服不人工计算余额，L1 不能直接捕获。</li>
+          <li>系统按金额把请求交给有权限的 L2/L3/L4。批准时 API 校验预留、版本和幂等键，捕获已有预留；本地预留模式下还会重新读取第三方余额并原子校验。</li>
+          <li>捕获成功后，自有系统保存礼物和消费事实，并通过 Outbox 播报。拒绝、过期或撤回则释放预留；播报失败只重试消息，不重复捕获。</li>
+        </ol>
+        <div class="callout warn">
+          <strong>语音链接规则：</strong>订单可以保存一个可选的 <code>voice_channel_id</code>。有链接时客服可一键加入；没有链接时处理卡片显示“用户当前未在订单语音频道”，客服改用私聊确认。prototype 不强制自动创建语音频道。
+        </div>
+
+        <h3>3.6 返佣计划与保密</h3>
+        <p><code>PROMOTER_FIRST_PURCHASE</code> 业务上称“老板带新”，通过邀请码或管理员手工绑定，按一次性固定额或首笔符合条件净消费比例结算，一次结算后永久结束。<code>PLAYER_LIFETIME</code> 表示陪玩带来的客人，按配置对长期符合条件的净订单和/或净礼物消费返点。一名被推荐用户只能有一个有效来源，两计划互斥，普通用户不可修改。只有受益人能在自己的“返佣/收益”中看到记录，来源用户默认脱敏；被推荐用户在用户 API、Discord、错误、导出和通知中永远不会得知受益人、关系类型、比例、金额或状态。</p>
+
+        <h3>3.7 客服如何介入</h3>
+        <div class="grid-2">
+          <div class="box"><h4>必须人工确认</h4><p>所有送礼请求。L1 可认领、联系用户和提交审批；最终批准/拒绝由 L2–L4 按金额和权限执行。</p></div>
+          <div class="box"><h4>默认自动，可人工接管</h4><p>下单、派单、取消和完成。用户主动求助、超时、规则命中或自动化失败时生成客服任务；客服可暂停自动化、转派或提交审批。</p></div>
+        </div>
+        <p>客服任务与订单状态分开保存。客服接管不会篡改历史记录；批准、拒绝、退款、转派等操作都会留下操作人、时间和原因。</p>
+
+        <h3>3.8 客服和管理员如何使用 Dashboard</h3>
+        <p>客服登录后台后先看到自己的待办和已认领任务。基础客服可以查订单、联系用户、写内部备注、核对送礼信息并提交审批，但看不到系统密钥，也不能直接扣款、退款、封禁用户或修改规则。客服主管处理常规审批和小额退款；运营负责人处理高金额、用户状态和业务配置；管理员/所有者只在人员权限、第三方集成或紧急停机等系统级操作时介入。</p>
+        <div class="flow"><span>L1 核对并提交</span><i>→</i><span>系统判断权限和金额</span><i>→</i><span>L2/L3/L4 按规则审批</span><i>→</i><span>执行操作</span><i>→</i><span>写入审计并通知</span></div>
+
+        <h3>3.9 Bot 和 Dashboard 为什么会得到相同结果</h3>
+        <p>用户在 Discord 点击“取消订单”，或客服在 Dashboard 点击同一操作时，两个界面都会把请求交给同一套业务 API。API 根据操作者、订单状态、金额和权限决定自动取消、生成审批或拒绝操作，再把结果返回给界面。因此规则只维护一份，Bot 重启、Dashboard 改版或新增其他客户端都不会改变业务结果。</p>
+
+        <h3>3.10 陪玩如何获得收益</h3>
+        <p>陪玩通过独立工作台查看审核资格、在线/可接单状态、当前与匹配订单、需求详情、就绪/完成倒计时、收益摘要和下一步动作。每个上架服务同时配置客户单价和陪玩结算单价，订单提交时保存快照；订单捕获完成或人工结案后生成收益。运营可确认并人工标记已支付，退款时追加 Adjustment 冲正；原收益不允许覆盖或删除。</p>
+      </section>
+
+      <section id="architecture">
+        <h2>4. 技术架构</h2>
+        <h3>4.1 逻辑架构</h3>
+        <pre aria-label="系统架构图">Discord 用户 / 陪玩 / 客服                客服 / 管理员浏览器
+              │                                  │
+              ▼                                  ▼
+ Sapphire Discord 适配器客户端              React 适配器客户端
+ 组件、频道、消息、在线状态适配            用户/陪玩界面、运营工作台
+              │                                  │
+              └───────────┬──────────────────────┘
+                          │ HTTPS / JSON
+                          ▼
+┌───────────────────────────────────────────────┐
+│ 统一业务 API（模块化单体 / 唯一业务规则入口） │
+│ 用户 │ 订单/就绪 │ 派单 │ 礼物 │ 返佣 │ 客服任务 │
+│ 预留/捕获/释放 │ 运营记账 │ RBAC/审批 │ 审计/Outbox │
+└──────────────────────┬────────────────────────┘
+                       │
+              ┌────────┴────────┐
+              ▼                 ▼
+         PostgreSQL       第三方资金适配层
+       业务事实来源      余额/hold/capture/release/退款
+                                │
+                                ▼
+                          第三方支付系统</pre>
+
+        <h3>4.2 推荐实现栈</h3>
+        <table>
+          <thead><tr><th>层</th><th>建议</th><th>原因</th></tr></thead>
+          <tbody>
+            <tr><td>语言</td><td>TypeScript / Node.js</td><td>Sapphire 对 TypeScript 提供一等支持；Node.js 至少满足 Sapphire 官方要求的 18.x，生产使用当期仍受维护的 LTS。</td></tr>
+            <tr><td>Discord</td><td><code>@sapphire/framework</code> + <code>discord.js</code></td><td>Sapphire 建立在 discord.js 上，提供模块化 Piece、命令、InteractionHandler、Listener 和 Precondition 组织方式。</td></tr>
+            <tr><td>API</td><td>Fastify 或现有 Node 框架</td><td>轻量、类型友好；原型无需引入微服务网关。</td></tr>
+            <tr><td>数据库</td><td>PostgreSQL + Prisma/Drizzle</td><td>事务与唯一约束适合解决重复接单和幂等问题。</td></tr>
+            <tr><td>客户端</td><td>React + Vite</td><td>构建陪玩工作台与紧凑的统一运营 Dashboard；导航和按钮按 capabilities 渲染，但最终权限由 API 强制校验。</td></tr>
+            <tr><td>异步任务</td><td>数据库 Job/Outbox 表</td><td>原型先不引入 Redis；支持播报重试与派单超时任务。</td></tr>
+            <tr><td>部署</td><td>Docker Compose</td><td>API、Bot、PostgreSQL 三个服务即可复现环境。</td></tr>
+          </tbody>
+        </table>
+
+        <p class="small">官方参考：<a href="https://sapphirejs.dev/docs/General/Welcome/">Sapphire Framework 概览</a>、<a href="https://sapphirejs.dev/docs/Guide/getting-started/getting-started-with-sapphire/">Getting Started</a>、<a href="https://sapphirejs.dev/docs/Documentation/api-framework/">Framework API</a>。</p>
+
+        <h3>4.3 业务模块边界</h3>
+        <div class="grid-2">
+          <div class="box"><h4>User</h4><p>账户绑定、角色、第三方用户映射、消费历史查询。</p></div>
+          <div class="box"><h4>Service Catalog</h4><p>游戏/服务上架、计价单位、客户单价、陪玩结算单价、版本和订单快照。</p></div>
+          <div class="box"><h4>Order &amp; Readiness</h4><p>订单创建、字段校验、双方 readiness、状态迁移、频道与面板引用；不提供陪玩单方正常开始路径。</p></div>
+          <div class="box"><h4>Dispatch</h4><p>候选筛选、已通知数和阶段、派单消息、唯一抢单、超时、暂停与人工转派。</p></div>
+          <div class="box"><h4>Fund Reservation</h4><p>统一计算 <code>reservedMinor</code>/<code>availableMinor</code>，处理订单和礼物的预留、捕获、释放、争议和部分结案。</p></div>
+          <div class="box"><h4>Gift</h4><p>礼物目录、目标选择、请求即预留、人工复核、批准捕获、消费事实与播报 Outbox。</p></div>
+          <div class="box"><h4>Referral</h4><p><code>PROMOTER_FIRST_PURCHASE</code>、<code>PLAYER_LIFETIME</code>、互斥来源、结算/冲正和 API/日志/导出/通知保密。</p></div>
+          <div class="box"><h4>Player Earnings</h4><p>订单结算快照、待确认收益、人工支付标记和退款冲正。</p></div>
+          <div class="box"><h4>Staff Task</h4><p>客服任务认领、批准/拒绝、订单协助、取消协助、异常处理和审计。</p></div>
+          <div class="box"><h4>Access Control</h4><p>L1–L4 角色、细粒度权限码、金额策略、二次验证、审批请求和会话撤销。</p></div>
+          <div class="box"><h4>Operational Accounting</h4><p>将余额快照、预留、消费、退款、陪玩收益、返佣和 Adjustment 自动组成同一业务时间线。</p></div>
+          <div class="box"><h4>Payment Adapter</h4><p>统一封装用户、真实余额、hold/capture/release、退款和回调验证；供应商无 hold 时由上层使用本地预留。</p></div>
+        </div>
+
+        <h3>4.4 Sapphire 适配器客户端的职责</h3>
+        <table>
+          <thead><tr><th>Sapphire Piece</th><th>本项目用途</th><th>边界</th></tr></thead>
+          <tbody>
+            <tr><td><code>InteractionHandler</code></td><td>处理公共按钮、订单按钮、下拉框和 Modal；构造操作者上下文后调用统一 API。</td><td>只解析 Discord 输入、调用 API 并渲染结果；不计算价格、不扣款、不直接读写业务数据库。</td></tr>
+            <tr><td><code>Listener</code></td><td>处理 ready、presenceUpdate、guildMemberUpdate、成员离开、交互错误和业务事件后的 Discord 同步。</td><td>Presence 只提供在线信号；角色变化调用权限同步用例，不直接授予 API 权限。</td></tr>
+            <tr><td><code>Precondition</code></td><td>校验管理员部署、修复和调试命令的角色与 Guild 范围。</td><td>按钮/Modal 由 InteractionHandler 调用共享 Discord 身份校验；所有业务对象权限仍需在 API 二次校验。</td></tr>
+            <tr><td><code>Command</code></td><td>仅保留部署入口、修复面板、健康检查等管理员命令。</td><td>普通用户主流程不依赖斜杠命令。</td></tr>
+            <tr><td><code>container</code></td><td>向 Pieces 暴露 API Client、logger、config 和少量 Discord 服务。</td><td>避免把完整业务模块塞进 SapphireClient。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>4.5 推荐目录结构</h3>
+        <pre>src/
+├── index.ts                         SapphireClient 启动与登录
+├── interaction-handlers/            按钮、Select、Modal 适配器
+│   ├── orders/
+│   ├── gifts/
+│   ├── staff/
+│   └── bot-config/                  配置分类、Channel/Role Select、编辑与确认
+├── listeners/                       Gateway 与框架事件
+├── preconditions/                   staff-only / player-only / guild-only
+├── commands/admin/                  部署、修复、健康检查与 bot-config.ts
+├── discord/                         面板渲染、频道权限、消息同步
+├── presenters/bot-config-presenter.ts  配置 API View Model 转 Discord components
+├── application/api-client.ts        统一 API Client、服务鉴权、Actor Context
+├── application/                     按订单/礼物/客服封装 API 调用
+└── config/                          环境配置与 Sapphire container 注册</pre>
+        <div class="callout">
+          <strong>实现约束：</strong>Sapphire 是 Discord 适配器客户端，不是业务数据库或业务规则引擎。它只翻译交互、频道、消息和 Presence；订单、readiness、礼物、预留、客服任务、返佣、权限和幂等逻辑只在统一业务 API 实现一次。
+        </div>
+        <p class="small">Prototype 不使用 <code>@sapphire/plugin-api</code> 承载核心业务 API。即使未来采用该插件提供 Bot 健康检查或辅助端点，订单与资金接口仍保持为独立业务服务，避免 Bot 重启影响后台管理和第三方回调。</p>
+      </section>
+
+      <section id="roles">
+        <h2>5. 角色与权限</h2>
+
+        <h3>5.1 业务角色</h3>
+        <table>
+          <thead><tr><th>角色</th><th>Discord 能力</th><th>后台能力</th></tr></thead>
+          <tbody>
+            <tr><td>用户</td><td>绑定账户、查看三项资金摘要、创建和查看自己的订单、预览并取消、确认就绪/完成、送礼、查消费与自己作为受益人的返佣。</td><td>无工作人员后台权限。</td></tr>
+            <tr><td>陪玩</td><td>从独立工作台查看资格、在线/可接单状态、匹配与当前订单、需求、倒计时、收益摘要和下一步；可接单、确认就绪和申请完成。</td><td>陪玩工作台是 P0 必备客户端；不授予运营配置权限。</td></tr>
+            <tr><td>Bot/系统</td><td>创建频道、修改权限、发送/更新消息、读取在线状态、处理交互。</td><td>通过服务账号调用内部 API；不得绕过业务校验直接改库。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>5.2 四级管理角色</h3>
+        <div class="callout"><strong>累积继承：</strong>高级别自动继承全部低级别执行权限，固定顺序为 <code>L1 &lt; L2 &lt; L3 &lt; L4</code>。API 按“当前级别不低于动作最低级别”授权，不要求角色名称完全相等；同一名达到最低级别的人员可以发起并执行审批，高额操作由 L4 直接执行，不强制另一人复核。</div>
+        <table>
+          <thead><tr><th>级别</th><th>定位</th><th>可执行范围</th><th>明确禁止</th></tr></thead>
+          <tbody>
+            <tr><td><code>L1_SUPPORT</code></td><td>基础客服</td><td>查看脱敏资料、认领自己的任务、联系用户、写内部备注、核对送礼/取消资料、提交审批和升级异常。</td><td>不得捕获、退款、批准/拒绝最终结果、取消已接单订单、查看返佣受益人或金额、封禁用户、改价格/返佣/配置、改权限或删除数据。</td></tr>
+            <tr><td><code>L2_SUPERVISOR</code></td><td>客服主管</td><td>拥有 L1 能力；管理团队队列、批准常规送礼、处理已接单取消、转派订单、编辑陪玩运营标签、执行限额内退款。</td><td>不得修改返佣规则、礼物价格、系统频道、人员权限、第三方集成或删除财务记录。</td></tr>
+            <tr><td><code>L3_OPERATIONS</code></td><td>运营负责人</td><td>拥有 L2 能力；处理超限操作、审核陪玩、维护服务/礼物目录和双价格、确认收益、返佣规则、业务配置及完整审计。</td><td>不得授予 L4、修改核心权限模型、轮换第三方密钥、硬删除财务和审计记录。</td></tr>
+            <tr><td><code>L4_ADMIN_OWNER</code></td><td>管理员 / 所有者</td><td>拥有全部业务权限；管理后台账号和角色、权限策略、第三方集成、密钥轮换、紧急停机、数据保留与合规导出。</td><td>仍不得硬删除订单、交易、礼物、返佣、退款或审计流水；这些记录只能冲正或追加更正。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>5.3 核心权限矩阵</h3>
+        <table>
+          <thead><tr><th>操作</th><th>L1 基础客服</th><th>L2 客服主管</th><th>L3 运营负责人</th><th>L4 管理员/所有者</th></tr></thead>
+          <tbody>
+            <tr><td>查看脱敏用户、订单和任务</td><td>允许</td><td>允许</td><td>允许</td><td>允许</td></tr>
+            <tr><td>认领任务、联系用户、写备注</td><td>允许（自己的任务）</td><td>允许（团队任务）</td><td>允许</td><td>允许</td></tr>
+            <tr><td>批准送礼扣款</td><td>只能提交审批</td><td>≤ ¥2,000</td><td>&gt; ¥2,000 且 &lt; ¥5,000</td><td>不限金额，可直接执行</td></tr>
+            <tr><td>执行退款</td><td>只能提交审批</td><td>≤ ¥500</td><td>&gt; ¥500 且 &lt; ¥5,000</td><td>不限金额，可直接执行</td></tr>
+            <tr><td>已接单取消 / 人工转派</td><td>只能提交申请</td><td>允许并填写原因</td><td>允许</td><td>允许</td></tr>
+            <tr><td>异常结案（退款 + 陪玩收益）</td><td>只能提交建议</td><td>退款 ≤ ¥500 且收益不超过订单快照</td><td>&gt; ¥500 且 &lt; ¥5,000</td><td>不限金额，可直接执行</td></tr>
+            <tr><td>编辑陪玩状态和运营标签</td><td>禁止</td><td>允许</td><td>允许</td><td>允许</td></tr>
+            <tr><td>审核陪玩准入 / 暂停接单</td><td>禁止</td><td>只能提交申请</td><td>允许</td><td>允许</td></tr>
+            <tr><td>管理服务目录与双价格</td><td>禁止</td><td>只读</td><td>允许</td><td>允许</td></tr>
+            <tr><td>通过 <code>/bot-config</code> 管理 Bot 配置</td><td>禁止</td><td>禁止</td><td>频道、通知、时限和功能开关</td><td>继承 L3，并可管理 Discord Role 映射</td></tr>
+            <tr><td>确认/冲正/标记陪玩收益已支付</td><td>禁止</td><td>只读</td><td>允许并填写原因</td><td>允许</td></tr>
+            <tr><td>暂停用户/陪玩账号</td><td>禁止</td><td>仅添加风险标记</td><td>允许</td><td>允许</td></tr>
+            <tr><td>修改礼物价格、返佣和业务规则</td><td>禁止</td><td>禁止</td><td>允许</td><td>允许</td></tr>
+            <tr><td>查看/纠正返佣关系与金额</td><td>禁止查看受益人和金额</td><td>仅按具体任务有限查看</td><td>绑定、纠错、确认、冲正和审计</td><td>允许</td></tr>
+            <tr><td>查看审计日志</td><td>仅自己的动作</td><td>团队范围</td><td>完整业务审计</td><td>全部审计</td></tr>
+            <tr><td>管理后台账号、角色和权限</td><td>禁止</td><td>禁止</td><td>禁止</td><td>允许</td></tr>
+            <tr><td>修改第三方集成、密钥、紧急停机</td><td>禁止</td><td>禁止</td><td>禁止</td><td>允许 + 二次验证</td></tr>
+            <tr><td>硬删除财务/审计记录</td><td>禁止</td><td>禁止</td><td>禁止</td><td>禁止</td></tr>
+          </tbody>
+        </table>
+
+        <h3>5.4 高风险操作规则</h3>
+        <ul>
+          <li>权限由 API 根据累积后的 <code>permission_code</code>、操作者级别、对象状态和金额共同判断；高等级自动拥有所有低等级执行权限，前端隐藏按钮不算权限控制。</li>
+          <li>Discord Role 映射只能授予不高于内部审批结果的有效权限；请求级别高于已批准级别时，API 始终取较低值。</li>
+          <li>Prototype 默认 L2 送礼审批上限为 ¥2,000、退款上限为 ¥500；超出后创建 <code>approval_request</code> 并升级给 L3。</li>
+          <li>单笔送礼或退款达到 ¥5,000 时最低要求 L4；L4 可以直接发起并执行，不要求另一名人员复核。</li>
+          <li>扣款、退款、封禁、规则变更、权限变更和集成变更必须填写原因、预览影响、二次确认并写入审计日志。</li>
+          <li>财务流水、订单事件和审计日志只追加不覆盖；纠错只能创建冲正或更正记录。</li>
+          <li>服务目录双价格、部分退款和陪玩收益确认/冲正属于财务相关操作，必须保存订单快照、原因和操作人。</li>
+          <li>L3/L4 执行敏感操作前必须完成近期二次验证；prototype 默认有效期 15 分钟。</li>
+        </ul>
+
+        <h3>5.5 私密订单频道权限</h3>
+        <ul>
+          <li><code>@everyone</code>：拒绝查看频道。</li>
+          <li>下单用户：允许查看、发消息、读取历史、使用组件；不得管理频道。</li>
+          <li>接单陪玩：接单成功后才加入；取消、转派或订单归档后移除。</li>
+          <li>L1–L4 工作人员：按任务或管理范围查看；L1 只能协助和提交审批，不能绕过 Dashboard/API 权限执行高风险动作。</li>
+          <li>Bot：允许管理频道、消息与权限覆盖。</li>
+        </ul>
+
+        <h3>5.6 客服处理频道权限</h3>
+        <ul>
+          <li>仅客服、管理员和 Bot 可查看；用户与陪玩不能进入。</li>
+          <li>L1 可以认领、打开订单频道、加入有权限的语音频道、私聊用户、写备注和提交审批。</li>
+          <li>扣款、退款、拒绝、取消和关闭任务必须跳转 Dashboard 或调用同一业务 API，由 L2–L4 按权限和金额执行。</li>
+          <li>卡片显示业务余额和必要上下文，不显示第三方凭证、支付账号或其他敏感信息。</li>
+        </ul>
+
+        <h3>5.7 Discord Role 与内部权限映射</h3>
+        <table>
+          <thead><tr><th>Discord Role 配置</th><th>请求的内部级别</th><th>同步规则</th></tr></thead>
+          <tbody>
+            <tr><td><code>STAFF_L1_ROLE_ID</code></td><td><code>L1_SUPPORT</code></td><td>自动创建或更新为 L1，并记录来源。</td></tr>
+            <tr><td><code>STAFF_L2_ROLE_ID</code></td><td><code>L2_SUPERVISOR</code></td><td>自动升级至 L2，撤销旧会话后重新登录。</td></tr>
+            <tr><td><code>STAFF_L3_ROLE_ID</code></td><td><code>L3_OPERATIONS</code></td><td>首次获得时进入 <code>PENDING_ELEVATION</code>，由现有 L4 确认后生效。</td></tr>
+            <tr><td><code>STAFF_L4_ROLE_ID</code></td><td><code>L4_ADMIN_OWNER</code></td><td>首次获得时由另一名现有 L4 确认；系统初始化时仅允许一次性 bootstrap L4。</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li>同一成员拥有多个映射 Role 时，以最高级别作为“请求级别”；真正生效的权限仍读取内部 <code>staff_accounts.level</code>。</li>
+          <li>Bot 在启动对账和 <code>guildMemberUpdate</code> 时提交成员当前 Role；Dashboard 登录只读取已同步且有效的内部账号，不直接相信浏览器提交的 Role ID。</li>
+          <li>L1/L2 可自动授予；L3/L4 首次升级必须由现有 L4 在 Dashboard 确认。Discord Role 本身不构成扣款、退款、配置或权限操作的授权。</li>
+          <li>Role 被移除或降级时立即降低内部权限、增加 <code>permissions_version</code> 并撤销全部会话；重新登录后才能按新级别操作。</li>
+          <li>所有映射、待确认升级、批准、拒绝、降级和撤权都写入不可删除的审计日志。</li>
+        </ul>
+      </section>
+
+      <section id="flows">
+        <h2>6. 核心用户流程</h2>
+
+        <h3>6.1 首次绑定与进入服务中心</h3>
+        <ol>
+          <li>用户点击公共入口的“我的服务中心”或“创建订单”。</li>
+          <li>系统检查 <code>discord_user_id</code> 是否已有有效绑定。</li>
+          <li>未绑定时弹出绑定 Modal，仅输入第三方系统签发的一次性绑定码。</li>
+          <li>Payment Adapter 调用第三方用户验证接口；成功后保存映射，不保存第三方密码。</li>
+          <li>Bot 返回仅本人可见的服务中心：第三方账户余额、预留金额、可用余额、进行中订单、最近消费以及当前用户作为受益人的返佣摘要。</li>
+        </ol>
+
+        <h3>6.2 创建订单</h3>
+        <div class="flow"><span>点击创建订单</span><i>→</i><span>账户校验</span><i>→</i><span>建立私密频道</span><i>→</i><span>填写结构化需求</span><i>→</i><span>一次完整确认</span><i>→</i><span>原子预留并派单</span></div>
+        <ol>
+          <li>系统检查用户是否已有未结束订单；若有，提供“进入现有订单”按钮。</li>
+          <li>创建订单草稿和私密频道，发送并置顶一条常驻面板。</li>
+          <li>用户在订单常驻消息中通过 String Select 依次选择游戏、服务、区服、时长和标签；选择结果每次提交后由 Bot 更新同一条消息。补充备注通过单字段“补充备注 Modal”填写。P0 不采集未来开始时间，不展示试音材料，不让用户选择或指定陪玩。</li>
+          <li>业务服务根据目录中的计价单位、客户单价和最低单位数估价；订单同时保存目录版本、客户单价和陪玩结算单价快照。</li>
+          <li>确认页一次展示游戏、服务、区服、时长、标签、备注、价格、第三方账户余额、预留金额、可用余额和取消规则。</li>
+          <li>用户点击“确认并提交”；统一 API 再次读取账户事实，以业务来源、幂等键和版本原子创建 <code>FundReservation</code>，成功后进入待派单；此时不立即捕获消费。</li>
+          <li>用户点击“联系客服”、风控/规则命中或自动提交失败时，系统创建客服任务；否则不增加人工审批等待。</li>
+        </ol>
+
+        <h3>6.3 自动派单与抢单</h3>
+        <ol>
+          <li>根据订单的游戏、服务和区服标签筛选陪玩。</li>
+          <li>候选人必须同时满足：准入状态为 ACTIVE、标签匹配、Discord 在线、业务状态为“可接单”、无活跃订单。</li>
+          <li>Bot 在集中派单频道发送订单卡片，仅 @ 候选陪玩或对应标签角色；同时向用户展示匹配阶段、已通知候选数和超时下一步。</li>
+          <li>陪玩点击“接单”；数据库事务以订单状态条件更新，第一位成功者获得订单。</li>
+          <li>系统将接单陪玩加入用户频道，向用户展示陪玩资料摘要和就绪下一步，更新双方卡片，并让原派单消息按钮失效。</li>
+          <li>指定时间无人接单时，将本轮 <code>dispatch_attempt</code> 标记为 <code>DISPATCH_TIMEOUT</code>。5 分钟超时保持订单预留和 <code>PENDING_DISPATCH</code>，用户可继续等待、取消并释放预留或联系客服；继续等待只创建新的派单轮次，不创建第二笔预留。订单提交 30 分钟仍无人处理时自动取消并释放，避免无期限占用。</li>
+        </ol>
+
+        <h3>6.4 服务与完成</h3>
+        <ol>
+          <li>接单后开始 10 分钟双方就绪宽限期；用户和陪玩在各自面板点击“我已就绪”，各自记录 readiness 事实。</li>
+          <li>只有 <code>customer_ready_at</code> 与 <code>player_ready_at</code> 都存在时，API 才自动将订单从 <code>ACCEPTED</code> 迁移到 <code>IN_SERVICE</code> 并记录实际开始时间。</li>
+          <li>任何一方未在宽限期内就绪都创建 <code>PLAYER_START_LATE</code> 客服任务，订单保持 <code>ACCEPTED</code>，不自动扣罚、捕获或释放。</li>
+          <li>陪玩完成后点击“申请完成”，等待用户确认。</li>
+          <li>用户点击“确认完成”后，API 先以预留的稳定幂等键捕获订单金额；捕获成功才完成订单，并生成消费事实、陪玩收益和符合计划的返佣。</li>
+          <li>用户 30 分钟未确认时创建 <code>COMPLETION_REVIEW</code> 任务；订单保持待确认，由客服决定完成、恢复服务或进入争议，不自动完成。</li>
+          <li>完成后频道进入只读状态，并在配置的保留期后归档。</li>
+        </ol>
+
+        <h3>6.5 取消订单</h3>
+        <ul>
+          <li><strong>草稿：</strong>用户可直接取消，不产生资金操作。</li>
+          <li><strong>待派单：</strong>用户可取消；API 释放订单预留，成功后关闭派单，不把未捕获金额描述为退款。</li>
+          <li><strong>已接单及以后：</strong>P0 不允许用户直接自动取消，系统先展示影响预览并创建 <code>CANCELLATION_ASSIST</code> 客服任务；争议期预留保持。</li>
+          <li>用户主动点击“联系客服”、释放/捕获失败或状态变更时也创建客服任务；订单不得在资金结果未确认前显示为已取消或已完成。</li>
+        </ul>
+        <table>
+          <thead><tr><th>场景</th><th>默认流程</th><th>允许的结案结果</th></tr></thead>
+          <tbody>
+            <tr><td>草稿取消</td><td>自动取消，无资金动作</td><td>退款 0；陪玩收益 0</td></tr>
+            <tr><td>待派单取消</td><td>预览后取消订单并释放全额预留</td><td>释放全额；陪玩收益 0</td></tr>
+            <tr><td>5 分钟无人接单</td><td>保持订单和原预留；用户继续等待时只创建新派单轮次，取消时释放；30 分钟无人处理自动取消并释放</td><td>继续等待不增加预留；取消/到期释放全额；陪玩收益 0</td></tr>
+            <tr><td>陪玩取消或接单后 10 分钟未开始</td><td>创建 <code>PLAYER_NO_SHOW</code> 任务</td><td>默认建议全额退款、陪玩收益 0；L2+ 确认并记录风险事件</td></tr>
+            <tr><td>用户接单后取消或 15 分钟未出现</td><td>创建 <code>CUSTOMER_NO_SHOW</code> 任务</td><td>由 L2+ 选择全额、部分或不退款，并明确陪玩补偿金额</td></tr>
+            <tr><td>服务中断 / 提前结束</td><td>创建 <code>SERVICE_INTERRUPTED</code> 任务</td><td>按实际服务和证据选择全额、部分或不退款；收益同步调整</td></tr>
+            <tr><td>完成争议</td><td>进入 EXCEPTION，冻结自动结算</td><td>L2+ 提交方案；超金额按现有审批规则升级</td></tr>
+          </tbody>
+        </table>
+        <p class="small">人工结案必须提交 <code>reason_code</code>、应捕获金额、应释放金额、已捕获部分的退款金额、<code>player_earning_minor</code> 和处理说明；合计不得超过订单快照。资金与收益调整只追加记录；Adjustment 金额必须是非负绝对值，由 <code>type</code> 表达方向。</p>
+
+        <h3>6.6 赠送礼物与播报</h3>
+        <ol>
+          <li>用户在符合条件的订单面板点击“赠送礼物”，选择启用的礼物；订单必填，接收陪玩由 <code>order.player_id</code> 推导并只读显示。</li>
+          <li>API 返回三项资金摘要。若礼物价格超过 <code>availableMinor</code>，客户端禁用确认，显示差额和充值入口。</li>
+          <li>确认时 API 原子创建 <code>gift_request</code>、PENDING <code>FundReservation</code> 和 <code>GIFT_REVIEW</code> 客服任务。卡片显示礼物、目标、来源订单、用户联系方式、语音链接、预留状态、有效期和可执行动作。</li>
+          <li>L1 或更高等级客服认领任务，通过语音或私聊核对品类、目标和沟通结果，然后将任务标记为“已核对，待审批”；L1 无权捕获或最终拒绝，任何客服都不人工计算余额。</li>
+          <li>系统按最低级别路由：L2 可批准 ≤ ¥2,000，L3 处理更高但低于 ¥5,000 的金额，≥ ¥5,000 由 L4 直接执行；任何更高级别也可执行低级别动作。</li>
+          <li>批准后 API 校验有效预留、版本和幂等键，捕获已有预留；本地预留模式在捕获前重新读取第三方余额。成功后创建消费事实；拒绝、过期或撤回后释放预留。</li>
+          <li>Outbox 任务向配置的礼物频道播报，并更新播报状态；失败只重试播报，不重复扣款。</li>
+          <li>礼物是否计入返佣由配置决定，prototype 默认计入符合条件的净消费。</li>
+        </ol>
+
+        <h3>6.7 返佣计划</h3>
+        <ul>
+          <li><code>PROMOTER_FIRST_PURCHASE</code>（老板带新）通过邀请码或管理员手工绑定，按固定额或首笔符合条件净消费百分比结算一次，结算后永久结束。</li>
+          <li><code>PLAYER_LIFETIME</code> 适用于陪玩带来的客人，按配置对长期符合条件的净订单和/或净礼物消费返点。</li>
+          <li>一名被推荐用户只能有一个有效来源，两计划互斥；绑定、改绑和冲正必须审计，普通用户不可修改。</li>
+          <li>退款或结案追加 Adjustment 冲正，原返佣记录不覆盖或删除；Adjustment 金额为非负绝对值，由 <code>type</code> 表达方向。</li>
+          <li>推广者/陪玩可查自己收益，来源用户默认脱敏。L1 默认不可看受益人和金额，L2 仅按任务有限查看，L3/L4 可绑定、纠错、确认和审计。</li>
+          <li>被推荐用户的用户 API、Discord、错误、导出和通知不得暴露受益人、关系类型、比例、金额或状态。</li>
+        </ul>
+
+        <h3>6.8 客服接管</h3>
+        <ol>
+          <li>客服任务由用户主动求助、业务规则、派单/readiness/完成超时、用户/陪玩爽约、服务中断、资金或自动化错误以及强制礼物复核触发。</li>
+          <li>客服在集中处理频道点击“认领”，避免多人重复处理。</li>
+          <li>L1 负责核对和提交；L2–L4 根据任务类型、金额与权限执行批准、拒绝、暂停/恢复自动化、转派、预留释放/捕获重试或关闭任务。</li>
+          <li>每个动作写入审计日志，并更新订单频道和客服卡片；客服任务状态不替代订单状态。</li>
+        </ol>
+
+        <h3>6.9 默认自动化 / 客服接管场景矩阵</h3>
+        <table>
+          <thead><tr><th>场景</th><th>默认自动化</th><th>接管触发</th><th>客服可执行</th><th>审批/审计</th></tr></thead>
+          <tbody>
+            <tr><td>订单提交</td><td>校验需求与价格，原子预留并进入派单。</td><td>余额或预留失败、规则命中、用户求助。</td><td>暂停提交、补齐资料、重试或提交审批。</td><td>资金与规则操作记录原因、版本和幂等键。</td></tr>
+            <tr><td>数字化派单</td><td>筛选候选、通知、唯一接单和进度更新。</td><td>无候选、超时、候选状态异常。</td><td>暂停本轮、调整合法候选、人工转派或释放预留。</td><td>转派和释放按权限记录候选快照与原因。</td></tr>
+            <tr><td>双方就绪</td><td>分别记录 readiness，两者都就绪后进入服务中。</td><td>任一方超时、报告问题或离开服务器。</td><td>联系双方、暂停、转派、继续等待或提交结案。</td><td>人工开始只作为受控兼容/结案动作，必须原因与审计。</td></tr>
+            <tr><td>取消/结案</td><td>执行前展示影响预览；未捕获订单按规则释放。</td><td>已接单、服务中、争议、部分结案或资金结果未知。</td><td>确定捕获/释放/退款与陪玩收益，或升级审批。</td><td>决议、金额、证据、操作人和 Adjustment 链全部只追加。</td></tr>
+            <tr><td>完成</td><td>用户确认后捕获订单预留，写消费、收益和返佣。</td><td>确认超时、捕获失败/未知、争议。</td><td>暂停、核对证据、恢复服务或提交原子结案。</td><td>捕获、订单完成和下游记账使用稳定幂等键与 Outbox。</td></tr>
+            <tr><td>礼物</td><td>请求时自动预留并创建任务；不自动批准。</td><td>所有礼物请求必然接管，另包括过期、撤回或预留异常。</td><td>L1 核对并提交；L2–L4 批准捕获或拒绝释放。</td><td>按金额路由审批；捕获与播报分离幂等，全程审计。</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="ui">
+        <h2>7. Discord UI 组件</h2>
+
+        <h3>7.1 公共入口</h3>
+        <pre>陪玩服务中心
+快速创建订单，或查看你的余额、消费和返佣。
+
+[ 创建订单 ]  [ 我的服务中心 ]</pre>
+        <p class="small">公共消息由管理员部署并长期保留。斜杠命令仅保留给管理员部署、修复或调试，不作为普通用户主路径。</p>
+
+        <h3>7.2 订单常驻面板</h3>
+        <pre>订单 #P-1042                          状态：草稿
+
+游戏        无畏契约
+服务        娱乐陪玩
+区服        北美
+开始方式    尽快开始（即时单）
+时长        2 小时
+标签        中文交流
+备注        轻松对局
+预计价格    ¥120.00
+第三方账户余额  ¥368.00
+预留金额          ¥80.00
+可用余额          ¥288.00
+取消规则    接单前可自动释放预留
+
+[选择游戏] [选择服务] [填写详情]
+        [确认并提交] [联系客服] [取消订单]</pre>
+        <p>提交确认必须一次展示 PL-01 全部字段；三项资金摘要同时展示，不把第三方余额误标为可用余额。每次操作只编辑同一条消息。</p>
+
+        <h3>7.3 陪玩工作台</h3>
+        <pre>陪玩工作台                    资格：ACTIVE
+在线 / 可接单    在线 / AVAILABLE
+当前订单          #P-1042  就绪倒计 06:18
+匹配订单          2 个  [查看]
+需求摘要          无畏契约 / 北美 / 2 小时 / 中文交流
+收益摘要          待确认 ¥240.00
+下一步            确认就绪
+[我已就绪] [进入订单] [联系客服]</pre>
+        <p>资格、在线和可接单是三个不同信号。陪玩工作台是 P0 必备客户端，可由 Discord 私密面板或 Web 视图承载，但必须调用同一 API。</p>
+
+        <h3>7.4 客服处理卡片：送礼审核</h3>
+        <pre>送礼请求 #G-2088                       状态：等待核对
+
+用户        @用户A
+目标陪玩    @陪玩B
+礼物        超级火箭
+金额        ¥520.00
+预留状态    PENDING / 有效至 14:35
+来源订单    #P-1042  [进入订单频道]
+用户联系    [私聊用户]
+语音状态    用户在 #订单语音-1042  [加入语音]
+
+[认领任务] [私聊用户] [已核对，提交审批] [升级处理]
+
+审批人视图： [批准并送出] [拒绝请求]</pre>
+        <p>L1 只看到认领、沟通、提交审批和升级按钮。L2–L4 由 API 判断金额和权限后才显示批准/拒绝；批准捕获已有预留，客服不人工计算余额。捕获成功前不得公开播报。</p>
+
+        <h3>7.5 组件使用规则</h3>
+        <table>
+          <thead><tr><th>组件</th><th>用途</th><th>约束</th></tr></thead>
+          <tbody>
+            <tr><td>Button</td><td>创建订单、提交、接单、分别确认就绪、确认完成、送礼、取消预览/执行、客服处理。</td><td>按 capabilities 展示；L1 不显示捕获/退款按钮；不提供陪玩单方开始的正常按钮。</td></tr>
+            <tr><td>String Select</td><td>订单消息中的游戏、服务、区服、时长、标签与礼物选择；历史记录筛选。</td><td>每个 String Select 最多 25 个选项。超出时使用消息分页，或先提交一个搜索词 Modal，再由 Bot 在新响应中返回结果；不能在尚未提交的 Modal 内实时搜索或级联刷新。</td></tr>
+            <tr><td>Discord Modal</td><td>一次性绑定码、订单补充备注等少量自由文本；当前 Discord API 也允许在 Modal 中放入受支持的 Select。</td><td>Modal 最多 5 个顶层组件，输入组件放在 Label 容器中；原生布局为纵向堆叠，不支持双栏，也不支持自定义底部按钮。P0 为保持级联选择清晰和可恢复，游戏、服务、区服、时长仍使用消息 Select；使用 Discord 原生提交/取消，服务端必须再次校验。</td></tr>
+            <tr><td>Ephemeral Response</td><td>余额、消费历史、返佣、错误提示与取消等二次确认。</td><td>二次确认使用仅本人可见的消息和 Button，不伪装成可自定义按钮的 Modal；避免在公共频道展示个人余额和消费。</td></tr>
+            <tr><td>Embed</td><td>订单面板、派单卡片、客服任务卡片、礼物播报。</td><td>金额、状态和订单编号需醒目；不放支付敏感信息。</td></tr>
+          </tbody>
+        </table>
+        <div class="callout">
+          <strong>级联选择规则：</strong>游戏、服务等关联选项不能在一个打开中的 Modal 内动态联动。用户每次提交消息组件后，Bot 调用统一 API 取得下一组可选项并编辑原订单消息；提交 Modal 后，也必须先处理该次提交，再以消息或新的 Modal 展示后续内容。
+        </div>
+        <p class="small">实现时以 Discord 官方的 <a href="https://docs.discord.com/developers/components/reference">组件参考</a>与<a href="https://docs.discord.com/developers/components/using-modal-components">Modal 组件指南</a>为准。Sapphire 通过当前版本的 <code>discord.js</code> Builder 创建这些组件；锁定依赖版本并在测试服务器验证，不能仅假设任意 <code>14.x</code> 都具备相同 Modal 组件能力。</p>
+
+        <h3>7.6 面板随状态变化</h3>
+        <table>
+          <thead><tr><th>状态</th><th>用户按钮</th><th>陪玩按钮</th></tr></thead>
+          <tbody>
+            <tr><td>草稿</td><td>选择游戏、选择服务、填写详情、提交、取消</td><td>不可见</td></tr>
+            <tr><td>待派单</td><td>匹配阶段、已通知数、超时下一步、取消预览、联系客服</td><td>派单频道/工作台：接单</td></tr>
+            <tr><td>已接单</td><td>陪玩资料摘要、我已就绪、送礼、联系客服</td><td>需求详情、我已就绪、倒计时、联系客服</td></tr>
+            <tr><td>服务中</td><td>送礼、报告问题</td><td>申请完成、报告问题</td></tr>
+            <tr><td>待确认</td><td>确认完成、送礼、报告问题</td><td>等待用户、联系客服</td></tr>
+            <tr><td>已完成</td><td>消费明细、送礼</td><td>无业务动作</td></tr>
+          </tbody>
+        </table>
+        <p class="small">礼物审核有独立状态。用户撤回未批准请求时由 API 释放预留；礼物价格超过可用余额时确认按钮禁用并显示差额和充值入口。</p>
+      </section>
+
+      <section id="states">
+        <h2>8. 状态机</h2>
+
+        <h3>8.1 订单状态</h3>
+        <div class="flow"><span>DRAFT</span><i>→</i><span>PENDING_DISPATCH</span><i>→</i><span>ACCEPTED</span><i>→</i><span>IN_SERVICE</span><i>→</i><span>PENDING_CONFIRMATION</span><i>→</i><span>COMPLETED</span></div>
+        <table class="state-table">
+          <thead><tr><th>状态</th><th>进入条件</th><th>允许的下一状态</th></tr></thead>
+          <tbody>
+            <tr><td>DRAFT</td><td>创建订单与频道成功。</td><td><code>PENDING_DISPATCH</code>、<code>CANCELLED</code></td></tr>
+            <tr><td>PENDING_DISPATCH</td><td>字段完整且订单 <code>FundReservation</code> 已原子创建；未捕获消费。</td><td><code>ACCEPTED</code>、<code>CANCELLED</code>、<code>EXCEPTION</code></td></tr>
+            <tr><td>ACCEPTED</td><td>陪玩事务性接单成功并加入频道；等待双方 readiness。</td><td>只有用户和陪玩都就绪才到 <code>IN_SERVICE</code>；超时创建客服任务并保持本状态</td></tr>
+            <tr><td>IN_SERVICE</td><td><code>customer_ready_at</code> 与 <code>player_ready_at</code> 均已记录，API 自动迁移。</td><td><code>PENDING_CONFIRMATION</code>、<code>EXCEPTION</code>；人工结案后可到 <code>COMPLETED</code>/<code>CANCELLED</code></td></tr>
+            <tr><td>PENDING_CONFIRMATION</td><td>陪玩申请完成，并设置 30 分钟确认期限。</td><td><code>COMPLETED</code>、<code>IN_SERVICE</code>、<code>EXCEPTION</code>；超时只创建客服任务</td></tr>
+            <tr><td>COMPLETED</td><td>用户确认或有权限的人工结案，且订单预留捕获成功。</td><td>终态；退款与纠错追加 Adjustment</td></tr>
+            <tr><td>CANCELLED</td><td>未捕获预留已释放，或人工结案的捕获/释放/退款/收益处理成功。</td><td>终态；后续纠错使用 Adjustment</td></tr>
+            <tr><td>EXCEPTION</td><td>资金、权限、派单、爽约、中断或争议导致自动流程无法继续。</td><td>恢复到合法状态，或以结案记录原子迁移到 <code>COMPLETED</code>/<code>CANCELLED</code></td></tr>
+          </tbody>
+        </table>
+
+        <h3>8.2 相关状态</h3>
+        <table class="state-table">
+          <thead><tr><th>对象</th><th>状态</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>陪玩可用性</td><td><code>AVAILABLE</code> / <code>BUSY</code> / <code>OFFLINE</code></td><td>业务开关与 Discord Presence 共同决定是否进入候选池。</td></tr>
+            <tr><td>资金预留</td><td><code>PENDING</code> / <code>ACTIVE</code> / <code>DISPUTED</code> / <code>PARTIALLY_SETTLED</code> / <code>CAPTURED</code> / <code>RELEASED</code> / <code>EXPIRED</code> / <code>FAILED</code></td><td><code>reservedMinor</code> 是有效 PENDING/ACTIVE/DISPUTED/PARTIALLY_SETTLED 预留剩余金额合计，不是手工余额字段。</td></tr>
+            <tr><td>支付镜像</td><td><code>PENDING</code> / <code>SUCCEEDED</code> / <code>FAILED</code> / <code>REFUNDED</code></td><td>仅保存 hold/capture/release/refund 引用和本地观察状态，不维护真实余额。</td></tr>
+            <tr><td>礼物请求</td><td><code>PENDING_REVIEW</code> / <code>APPROVED</code> / <code>CAPTURED</code> / <code>ANNOUNCED</code> / <code>REJECTED</code> / <code>EXPIRED</code> / <code>WITHDRAWN</code> / <code>FAILED</code> / <code>REVERSED</code></td><td>请求时预留，批准时捕获；拒绝、过期或撤回时释放。</td></tr>
+            <tr><td>客服任务</td><td><code>OPEN</code> / <code>CLAIMED</code> / <code>VERIFIED</code> / <code>PENDING_APPROVAL</code> / <code>APPROVED</code> / <code>REJECTED</code> / <code>RESOLVED</code> / <code>CANCELLED</code></td><td>L1 核对后进入 VERIFIED/PENDING_APPROVAL；最终动作由权限策略决定。</td></tr>
+            <tr><td>审批请求</td><td><code>PENDING</code> / <code>APPROVED</code> / <code>REJECTED</code> / <code>EXPIRED</code> / <code>CANCELLED</code></td><td>对象版本、金额或策略变化会使旧审批失效。</td></tr>
+            <tr><td>返佣</td><td><code>PENDING</code> / <code>CONFIRMED</code> / <code>PAID</code> / <code>REVERSED</code></td><td>关联 <code>PROMOTER_FIRST_PURCHASE</code> 或 <code>PLAYER_LIFETIME</code>；原记录只追加，冲正使用 Adjustment。</td></tr>
+            <tr><td>陪玩准入</td><td><code>PENDING_REVIEW</code> / <code>ACTIVE</code> / <code>PAUSED</code> / <code>SUSPENDED</code></td><td>只有 ACTIVE 陪玩可进入派单候选；AVAILABLE/BUSY 是独立的临时接单状态。</td></tr>
+            <tr><td>陪玩收益</td><td><code>PENDING</code> / <code>CONFIRMED</code> / <code>PAID</code> / <code>REVERSED</code></td><td>人工支付只改变状态；退款和纠错使用冲正记录。</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="data">
+        <h2>9. 数据模型</h2>
+        <p>金额统一以最小货币单位整数保存，时间统一存 UTC。资金摘要对外只使用 <code>providerBalanceMinor</code>、<code>reservedMinor</code>、<code>availableMinor</code>、<code>currency</code>、<code>fetchedAt</code>。Adjustment 金额必须是非负绝对值，方向只由 <code>type</code> 表达。</p>
+
+        <table class="model-table">
+          <thead><tr><th>表</th><th>关键字段</th><th>关键约束</th></tr></thead>
+          <tbody>
+            <tr><td>users</td><td>id, display_name, role, status</td><td>业务用户主体；封禁状态必须阻止新交易。</td></tr>
+            <tr><td>discord_accounts</td><td>user_id, guild_id, discord_user_id</td><td><code>(guild_id, discord_user_id)</code> 唯一。</td></tr>
+            <tr><td>external_accounts</td><td>user_id, provider, external_user_id, verified_at</td><td><code>(provider, external_user_id)</code> 唯一；不存外部密码。</td></tr>
+            <tr><td>service_catalog</td><td>game, service, region?, billing_unit_minutes, min_units, customer_unit_price_minor, player_unit_payout_minor, currency, enabled, version, updated_by</td><td>客户价和陪玩结算价缺一不可；只有 enabled 版本可下单，历史订单继续使用快照。</td></tr>
+            <tr><td>player_profiles</td><td>user_id, review_status, availability, game_tags, service_tags, approved_by?, approved_at?</td><td>仅 ACTIVE + AVAILABLE 的陪玩可接单；标签使用关联表或 JSONB 原型字段。</td></tr>
+            <tr><td>orders</td><td>customer_id, player_id, status, service_catalog_id, catalog_version, billing_unit_minutes, unit_count, tags, notes, customer_unit_price_minor, player_unit_payout_minor, amount_minor, reservation_id?, customer_ready_at?, player_ready_at?, readiness_due_at?, submitted_at, accepted_at?, service_started_at?, completion_requested_at?, confirmation_due_at?, channel_id, panel_message_id, voice_channel_id?</td><td>首版仅即时单；提交时绑定一笔有效预留；双方 readiness 齐全才可进入服务中。</td></tr>
+            <tr><td>order_events</td><td>order_id, event_type, from_status, to_status, actor_id, payload</td><td>只追加，不更新；用于审计和恢复。</td></tr>
+            <tr><td>order_resolutions</td><td>order_id, target_status, reason_code, capture_amount_minor, release_amount_minor, refund_amount_minor, player_earning_minor, evidence_note, resolved_by, approval_request_id?, created_at</td><td>捕获 + 释放不得超过预留；资金、收益、状态与审计按幂等结案编排一致生效。</td></tr>
+            <tr><td>dispatch_attempts</td><td>order_id, dispatch_message_id, candidate_ids, status, accepted_by</td><td>一个订单同一轮只有一个成功接单人。</td></tr>
+            <tr><td>balance_snapshots</td><td>user_id, provider_balance_minor, reserved_minor, available_minor, currency, fetched_at, provider_request_id?</td><td>用于可审计的显示/执行快照；不作为真实余额事实。</td></tr>
+            <tr><td>fund_reservations</td><td>user_id, source_type, source_id, amount_minor, currency, mode, provider_hold_ref?, status, idempotency_key, version, expires_at?, captured_minor, released_minor</td><td><code>(source_type, source_id)</code> 与 <code>idempotency_key</code> 唯一；创建/捕获/释放使用版本化并发控制。</td></tr>
+            <tr><td>external_transactions</td><td>operation, user_id, source_type, source_id, external_ref, idempotency_key, amount_minor, status</td><td>operation 为 HOLD/CAPTURE/RELEASE/CHARGE/REFUND；<code>idempotency_key</code> 和非空 <code>external_ref</code> 唯一。</td></tr>
+            <tr><td>gift_catalog</td><td>name, price_minor, enabled, broadcast_template</td><td>下架后历史礼物仍保留名称和价格快照。</td></tr>
+            <tr><td>gift_requests</td><td>gift_id, sender_id, target_player_id, source_order_id?, price_minor, reservation_id, status, expires_at, approved_by?, external_transaction_id?, broadcast_message_id?</td><td>目标由 API 校验为有效陪玩；创建时保存礼物/价格快照并绑定预留。</td></tr>
+            <tr><td>staff_tasks</td><td>type, status, order_id?, gift_request_id?, claimed_by?, voice_channel_id?, context, resolved_at</td><td>支持礼物、取消、爽约、服务中断、完成超时和争议；认领与解决使用条件更新。</td></tr>
+            <tr><td>staff_accounts</td><td>user_id, discord_user_id, level, requested_level?, status, role_source, role_synced_at, confirmed_by?, mfa_enrolled, permissions_version, last_login_at</td><td>level 仅为 L1–L4；<code>requested_level</code> 保存待确认的 L3/L4；任何生效级别变化都增加 permissions_version 并撤销旧会话。</td></tr>
+            <tr><td>discord_role_mappings</td><td>guild_id, discord_role_id, target_level, enabled, version, updated_by</td><td><code>(guild_id, discord_role_id)</code> 唯一；每级最多一个启用映射，修改仅允许 L4 并保留版本。</td></tr>
+            <tr><td>staff_role_sync_events</td><td>staff_id?, discord_user_id, observed_role_ids, previous_level?, requested_level?, applied_level?, status, source, approval_request_id?</td><td>保存启动对账、guildMemberUpdate 和人工重试结果；只追加，用于解释权限为何变化。</td></tr>
+            <tr><td>role_permissions</td><td>level, permission_code, scope</td><td>Prototype 使用受版本控制的固定矩阵；例如 staff_task.claim、gift.approve、refund.execute、access.manage。</td></tr>
+            <tr><td>staff_sessions</td><td>staff_id, session_hash, expires_at, step_up_at, revoked_at, ip_hash, user_agent</td><td>只存会话摘要；角色变化、离职或异常时可全部撤销。</td></tr>
+            <tr><td>policy_settings</td><td>key, value, currency, updated_by, version</td><td>保存 L2/L3 金额阈值和 L4 高额直接执行门槛；变更只追加版本。</td></tr>
+            <tr><td>guild_bot_configs<br><code>GuildBotConfig</code></td><td>guild_id, version, config_json, updated_by_staff_id, updated_at</td><td>每个 Guild 一条当前配置；写入使用 expectedVersion，内容必须通过配置 Schema。</td></tr>
+            <tr><td>guild_bot_config_events<br><code>GuildBotConfigEvent</code></td><td>guild_id, version, changes_json, previous_values_json, reason, actor_staff_id, source, created_at</td><td><code>/bot-config</code> 修改历史只追加，不允许硬删除。</td></tr>
+            <tr><td>approval_requests</td><td>action, target_type, target_id, payload_hash, amount_minor, requested_by, required_level, status, approved_by, expires_at</td><td>达到 required_level 的同一人员可发起并执行；过期或目标版本变化后必须重提。</td></tr>
+            <tr><td>consumption_ledger</td><td>user_id, type, source_id, amount_minor, occurred_at, status</td><td>订单/礼物统一查询；冲正以新记录表示，不覆盖原记录。</td></tr>
+            <tr><td>player_earnings</td><td>player_id, order_id, source_resolution_id?, base_units, unit_payout_minor, amount_minor, status, confirmed_by?, paid_at?, reversal_of?</td><td>每个订单一条原始收益；确认、支付和退款冲正可审计，原记录不可覆盖或删除。</td></tr>
+            <tr><td>referrals</td><td>beneficiary_id, referred_id, plan_type, status, invite_code?, fixed_amount_minor?, rate_bps?, eligible_sources, bound_at, ended_at?</td><td><code>plan_type</code> 仅 PROMOTER_FIRST_PURCHASE/PLAYER_LIFETIME；每个 referred_id 只有一个有效来源，两计划互斥。</td></tr>
+            <tr><td>commissions</td><td>referral_id, source_type, source_id, base_amount_minor, rate_bps?, fixed_amount_minor?, amount_minor, status, settled_at?</td><td><code>(source_type, source_id, referral_id)</code> 唯一；PROMOTER_FIRST_PURCHASE 结算一次后关系永久结束。</td></tr>
+            <tr><td>adjustments</td><td>type, source_type, source_id, target_type, target_id, amount_minor, reversal_of?, reason_code, created_by</td><td><code>amount_minor &gt;= 0</code>；由 type 表达加减方向，原消费/收益/返佣记录不覆盖或删除。</td></tr>
+            <tr><td>outbox_jobs</td><td>type, payload, attempts, run_after, status, last_error</td><td>用于礼物播报、派单超时、频道归档等可重试任务。</td></tr>
+            <tr><td>risk_events</td><td>user_id, order_id?, type, severity, source, notes, created_by?</td><td>记录用户/陪玩爽约、疑似重复账号和推荐滥用信号；不自动封禁。</td></tr>
+            <tr><td>audit_logs</td><td>actor_id, actor_level, actor_source, client_id, interaction_id?, permission_code, action, target_type, target_id, before, after, reason, request_id, approval_request_id?, ip_hash</td><td>Bot 与 Dashboard 操作统一归因到真实操作者；所有后台写操作和拒绝的高风险尝试都记录，只追加且任何角色不可删除。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>9.1 最小实体关系</h3>
+        <pre>User 1──1 DiscordAccount
+User 1──1 ExternalAccount
+User 1──0..1 PlayerProfile
+ServiceCatalog 1──* Order (versioned snapshot)
+User 1──* Order (customer)
+User 1──* Order (player)
+Order 1──* OrderEvent
+Order 1──* OrderResolution
+Order 1──* DispatchAttempt
+Order 1──* GiftRequest
+Order 1──1 PlayerEarning (plus reversals)
+GiftRequest 1──1 StaffTask (GIFT_REVIEW)
+Order 1──* StaffTask (assist/exception)
+StaffAccount *──1 RolePermission Set
+DiscordRoleMapping 1──* StaffRoleSyncEvent
+StaffAccount 1──* StaffRoleSyncEvent
+StaffAccount 1──* StaffSession
+StaffAccount 1──* ApprovalRequest (requester/approver)
+ApprovalRequest 1──* AuditLog
+User 1──* ConsumptionLedger
+Referral 1──* Commission
+User 1──* BalanceSnapshot
+User 1──* FundReservation
+Order/GiftRequest 1──1 FundReservation
+Consumption/Refund/PlayerEarning/Commission 1──* Adjustment
+ExternalTransaction *──1 FundReservation/Refund</pre>
+      </section>
+
+      <section id="api">
+        <h2>10. API 草案</h2>
+        <p>统一前缀 <code>/api/v1</code>。Discord Bot 与 Dashboard 调用同一套业务接口和应用用例：Bot 使用受限服务账号并代表当前 Discord 操作者，Dashboard 使用 Discord OAuth2 登录后的后台会话。所有写接口接受 <code>Idempotency-Key</code>，响应包含 <code>request_id</code>；API 在每个入口执行相同的对象归属、权限码、金额、状态与审批策略。</p>
+
+        <div class="callout">
+          <strong>复用原则：</strong><code>/admin</code> 表示“需要工作人员权限”，不表示“只能由 Dashboard 调用”。Discord 客服卡片上的认领、核对、审批等按钮也可调用这些接口，但必须携带真实点击者上下文，并通过同一套 RBAC 和审计。
+        </div>
+
+        <h3>10.1 统一调用与身份契约</h3>
+        <table>
+          <thead><tr><th>调用方</th><th>调用方鉴权</th><th>真实操作者解析</th><th>典型用途</th></tr></thead>
+          <tbody>
+            <tr><td>Sapphire Bot（用户/陪玩操作）</td><td>仅 Bot 可用的服务 Token</td><td>从受信 Actor Context 的 Discord User/Guild 映射到内部用户，并检查对象归属。</td><td>个人中心、创建/取消订单、接单、完成、送礼。</td></tr>
+            <tr><td>Sapphire Bot（员工按钮）</td><td>同一受限服务 Token</td><td>解析内部 <code>staff_account</code>、有效级别、scope 和 <code>permissions_version</code>。</td><td>认领、核对、提交审批及有权限的执行操作。</td></tr>
+            <tr><td>Dashboard</td><td>Discord OAuth2 + 服务端后台会话</td><td>从会话读取 staff_id；忽略浏览器自报级别和 Role。</td><td>任务、订单、审批、配置、权限与审计。</td></tr>
+            <tr><td>系统 Job / Webhook</td><td>独立服务身份或第三方签名</td><td>标记为 SYSTEM/PROVIDER，不伪装成人类操作者。</td><td>播报重试、归档、支付回调和对账。</td></tr>
+          </tbody>
+        </table>
+        <pre>Authorization: Bearer &lt;bot-service-token&gt;
+X-Client-Source: DISCORD_BOT
+X-Actor-Discord-User-Id: 1234567890
+X-Actor-Guild-Id: 9876543210
+X-Discord-Interaction-Id: 1122334455
+Idempotency-Key: discord:1122334455</pre>
+        <ul>
+          <li>以上 Actor Header 只在通过 Bot 服务身份鉴权后才可信；普通外部请求即使伪造 Header 也必须被拒绝。</li>
+          <li>Bot 不提交可直接生效的 <code>actor_id</code>、级别或权限码；API 根据 Discord 身份查询内部用户/员工账号。</li>
+          <li>Dashboard 不允许通过请求参数切换操作者；所有审计从服务端会话提取 staff_id。</li>
+          <li>Bot 与 Dashboard 对同一业务动作调用同一应用用例；客户端差异只存在于输入适配和结果渲染。</li>
+        </ul>
+
+        <h3>10.2 用户与服务中心</h3>
+        <table class="api-table">
+          <thead><tr><th>方法/路径</th><th>用途</th><th>关键输入/输出</th></tr></thead>
+          <tbody>
+            <tr><td><span class="method">POST</span> /bindings</td><td>绑定当前 Discord 操作者与第三方账号</td><td>binding_code；Discord 身份取自 Actor Context → user, external_user_id</td></tr>
+            <tr><td><span class="method">GET</span> /services</td><td>查询可下单的服务目录</td><td>game, service, region, unit, minimum, customer price；不向用户返回陪玩结算价</td></tr>
+            <tr><td><span class="method">GET</span> /me</td><td>个人中心摘要</td><td>用户、角色、进行中订单、消费/返佣摘要</td></tr>
+            <tr><td><span class="method">GET</span> /me/balance</td><td>返回统一资金摘要</td><td><code>providerBalanceMinor</code>, <code>reservedMinor</code>, <code>availableMinor</code>, currency, fetchedAt</td></tr>
+            <tr><td><span class="method">GET</span> /me/consumptions</td><td>分页查询消费历史</td><td>type, amount, target, occurred_at, status</td></tr>
+            <tr><td><span class="method">GET</span> /me/commissions</td><td>仅查当前用户作为受益人的收益</td><td>planType, pending, confirmed, paid, items；来源用户默认脱敏</td></tr>
+          </tbody>
+        </table>
+
+        <h3>10.3 订单与派单</h3>
+        <table class="api-table">
+          <thead><tr><th>方法/路径</th><th>用途</th><th>关键输入/输出</th></tr></thead>
+          <tbody>
+            <tr><td><span class="method">POST</span> /orders</td><td>为当前用户创建订单草稿</td><td>客户由 Actor Context 推导 → order_id, channel_spec</td></tr>
+            <tr><td><span class="method">PATCH</span> /orders/:id</td><td>更新即时单草稿</td><td>service_catalog_id, unit_count, region, notes；服务端写入双价格与版本快照</td></tr>
+            <tr><td><span class="method">POST</span> /orders/:id/submit</td><td>完整确认、原子预留并开始派单</td><td>expectedVersion → order, reservation, balanceSummary；不立即捕获</td></tr>
+            <tr><td><span class="method">GET</span> /orders/:id/cancellation-preview</td><td>预览取消影响</td><td>automatable, expectedReleaseMinor, expectedRefundMinor, method, eta, expectedVersion</td></tr>
+            <tr><td><span class="method">POST</span> /orders/:id/cancel</td><td>按最新状态原子取消</td><td>reason, expectedVersion → order, reservation/adjustment status</td></tr>
+            <tr><td><span class="method">POST</span> /orders/:id/accept</td><td>当前陪玩抢单</td><td>陪玩由 Actor Context 推导 → accepted true/false</td></tr>
+            <tr><td><span class="method">POST</span> /orders/:id/readiness</td><td>当前用户或陪玩确认就绪</td><td>ready=true, expectedVersion → 双方齐全才进入 IN_SERVICE</td></tr>
+            <tr><td><span class="method">POST</span> /admin/orders/:id/legacy-start</td><td>受控兼容/人工结案用途</td><td><code>order.resolve</code>, reason, approval；不是正常用户流程</td></tr>
+            <tr><td><span class="method">POST</span> /orders/:id/request-completion</td><td>陪玩申请完成</td><td>操作者由服务端解析 → PENDING_CONFIRMATION</td></tr>
+            <tr><td><span class="method">POST</span> /orders/:id/confirm</td><td>用户确认完成并捕获订单预留</td><td>expectedVersion → COMPLETED + consumption + playerEarning + eligible commission</td></tr>
+            <tr><td><span class="method">GET</span> /players/me/workbench</td><td>陪玩工作台</td><td>eligibility, presence, availability, currentOrder, matchedOrders, countdowns, earningsSummary, nextActions</td></tr>
+            <tr><td><span class="method">PUT</span> /players/me/availability</td><td>切换可接单状态</td><td>AVAILABLE / BUSY</td></tr>
+          </tbody>
+        </table>
+
+        <h3>10.4 礼物、客服任务、返佣与工作人员操作</h3>
+        <table class="api-table">
+          <thead><tr><th>方法/路径</th><th>用途</th><th>关键输入/输出</th></tr></thead>
+          <tbody>
+            <tr><td><span class="method">GET</span> /gifts</td><td>查询已上架礼物</td><td>id, name, price, enabled</td></tr>
+            <tr><td><span class="method">POST</span> /gift-requests</td><td>在订单面板或服务中心创建请求并立即预留</td><td>giftId, targetPlayerId, sourceOrderId? → giftRequest, reservation, staffTask</td></tr>
+            <tr><td><span class="method">POST</span> /admin/staff-tasks/:id/claim</td><td>L1+ 认领任务</td><td><code>staff_task.claim</code> → CLAIMED</td></tr>
+            <tr><td><span class="method">POST</span> /admin/staff-tasks/:id/verify</td><td>L1+ 标记已核对并提交审批</td><td><code>staff_task.verify</code>, notes → approval route</td></tr>
+            <tr><td><span class="method">POST</span> /admin/gift-requests/:id/approve</td><td>按金额批准并捕获已有预留</td><td><code>gift.approve</code>, expectedVersion → capture 或 approvalPending</td></tr>
+            <tr><td><span class="method">POST</span> /admin/gift-requests/:id/reject</td><td>L2+ 拒绝并释放预留</td><td><code>gift.reject</code>, reason, expectedVersion → REJECTED + RELEASED</td></tr>
+            <tr><td><span class="method">POST</span> /orders/:id/staff-tasks</td><td>创建订单/取消协助任务</td><td>type, reason, voice_channel_id? → staff_task</td></tr>
+            <tr><td><span class="method">POST</span> /admin/orders/:id/refund</td><td>按金额与状态执行退款或提交审批</td><td><code>refund.execute</code>, amount, reason → transaction / approval_pending</td></tr>
+            <tr><td><span class="method">POST</span> /admin/orders/:id/resolve</td><td>原子处理取消、爽约、中断、完成超时或争议</td><td><code>order.resolve</code>, target_status, reason_code, refund_amount_minor, player_earning_minor, evidence_note → resolution / approval_pending</td></tr>
+            <tr><td><span class="method">POST</span> /admin/referrals</td><td>绑定互斥返佣计划并校验唯一来源</td><td>beneficiaryId, referredId, planType, fixedAmountMinor?/rateBps?, eligibleSources</td></tr>
+            <tr><td><span class="method">POST</span> /admin/referrals/:id/rebind</td><td>L3/L4 纠错改绑</td><td>reason, evidence, expectedVersion → audited replacement</td></tr>
+            <tr><td><span class="method">PATCH</span> /admin/commissions/:id</td><td>人工确认或标记发放</td><td>status, reason</td></tr>
+            <tr><td><span class="method">GET</span> /admin/player-earnings</td><td>查询待确认、已确认、已支付与冲正收益</td><td><code>earnings.read</code>, filters → paginated earnings</td></tr>
+            <tr><td><span class="method">PATCH</span> /admin/player-earnings/:id</td><td>确认、标记支付或创建冲正</td><td><code>earnings.manage</code>, status/action, reason</td></tr>
+            <tr><td><span class="method">POST</span> /admin/players/:id/approve</td><td>审核陪玩并启用接单</td><td><code>player.approve</code>, approved game/service tags → ACTIVE</td></tr>
+            <tr><td><span class="method">POST</span> /admin/players/:id/pause</td><td>暂停或恢复陪玩接单资格</td><td><code>player.approve</code>, reason → PAUSED/ACTIVE</td></tr>
+            <tr><td><span class="method">POST</span> /admin/service-catalog</td><td>创建服务及客户/陪玩双价格版本</td><td><code>catalog.manage</code>, unit, min_units, customer_price, player_payout</td></tr>
+            <tr><td><span class="method">PATCH</span> /admin/service-catalog/:id</td><td>创建新版本、上架或下架服务</td><td><code>catalog.manage</code>, expected_version, reason</td></tr>
+            <tr><td><span class="method">POST</span> /admin/orders/:id/reassign</td><td>人工转派</td><td>player_id, reason</td></tr>
+            <tr><td><span class="method">POST</span> /admin/jobs/:id/retry</td><td>重试失败播报/任务</td><td>reason → job status</td></tr>
+          </tbody>
+        </table>
+
+        <h3>10.5 工作人员、RBAC、Role 同步与审批接口</h3>
+        <table class="api-table">
+          <thead><tr><th>方法/路径</th><th>用途</th><th>最低权限</th></tr></thead>
+          <tbody>
+            <tr><td><span class="method">GET</span> /admin/me/capabilities</td><td>返回当前级别、权限码、数据范围、金额阈值和 step-up 状态</td><td>已登录后台账号</td></tr>
+            <tr><td><span class="method">GET</span> /admin/dashboard/summary</td><td>返回统一工作台和八项最小指标</td><td><code>dashboard.view</code></td></tr>
+            <tr><td><span class="method">GET</span> /admin/staff-tasks</td><td>按 scope 查询个人/团队/全部任务</td><td><code>staff_task.read</code></td></tr>
+            <tr><td><span class="method">POST</span> /admin/approval-requests</td><td>提交超权限或超金额操作</td><td>对应操作的 <code>request</code> 权限</td></tr>
+            <tr><td><span class="method">POST</span> /admin/approval-requests/:id/approve</td><td>批准并执行仍然有效的请求</td><td>required_level + 对应 execute 权限</td></tr>
+            <tr><td><span class="method">POST</span> /admin/approval-requests/:id/reject</td><td>拒绝请求并记录原因</td><td>required_level + 对应 approve 权限</td></tr>
+            <tr><td><span class="method">GET</span> /admin/audit-logs</td><td>按当前 scope 查询不可变审计记录</td><td><code>audit.read</code></td></tr>
+            <tr><td><span class="method">GET</span> /admin/bot-config</td><td>读取当前 Guild 的 Bot 配置和操作者可管理字段</td><td><code>bot_config.read</code>（L3+）</td></tr>
+            <tr><td><span class="method">POST</span> /admin/bot-config/validate</td><td>校验频道、Role、数值、Bot 权限和待修改内容</td><td><code>bot_config.operational.manage</code> 或 <code>bot_config.security.manage</code></td></tr>
+            <tr><td><span class="method">PATCH</span> /admin/bot-config</td><td>凭短期 <code>validationToken</code> 和 <code>expectedVersion</code> 应用已确认的修改并写审计</td><td>按字段最低等级</td></tr>
+            <tr><td><span class="method">POST</span> /admin/bot-config/test-delivery</td><td>发送明确标记的频道测试消息，不创建业务事实</td><td><code>bot_config.operational.manage</code>（L3+）</td></tr>
+            <tr><td><span class="method">PATCH</span> /admin/staff/:id/role</td><td>人工降级、撤权或纠正 L1/L2；L3/L4 升级仍要求对应 Discord Role 和确认流程</td><td><code>access.manage</code>（L4）</td></tr>
+            <tr><td><span class="method">POST</span> /admin/staff/:id/revoke-sessions</td><td>立即撤销后台访问</td><td><code>access.manage</code>（L4）</td></tr>
+            <tr><td><span class="method">GET</span> /admin/discord-role-mappings</td><td>查看 Role ID 到 L1–L4 的版本化映射</td><td><code>access.read</code>（L4）</td></tr>
+            <tr><td><span class="method">PUT</span> /admin/discord-role-mappings/:level</td><td>修改指定级别映射并触发全量对账</td><td><code>access.manage</code>（L4 + step-up）</td></tr>
+            <tr><td><span class="method">POST</span> /admin/staff/:id/role-elevation/approve</td><td>确认首次 L3/L4 授权并撤销旧会话</td><td><code>access.manage</code>（现有 L4）</td></tr>
+            <tr><td><span class="method">POST</span> /internal/discord/role-sync</td><td>Bot 提交成员当前 Role，用于启动对账和成员更新</td><td>仅 Bot 服务身份；不能直接执行 L3/L4 首次升级</td></tr>
+          </tbody>
+        </table>
+        <p class="small">Bot 配置接口对应的 operationId 固定为 <code>getBotConfig</code>、<code>validateBotConfigChange</code>、<code>updateBotConfig</code> 和 <code>testBotConfigDelivery</code>，供 Sapphire 与未来 Dashboard 复用。</p>
+
+        <h3>10.6 身份与权限响应约定</h3>
+        <table>
+          <thead><tr><th>HTTP / code</th><th>含义</th><th>客户端行为</th></tr></thead>
+          <tbody>
+            <tr><td><code>401 AUTH_REQUIRED</code></td><td>服务身份、登录会话或 Actor Context 无效</td><td>Dashboard 跳转登录；Bot 返回临时错误并记录 interaction_id。</td></tr>
+            <tr><td><code>403 STAFF_ACCOUNT_REQUIRED</code></td><td>Discord Role 尚未映射为有效内部员工账号</td><td>不执行操作，提示联系管理员或等待权限同步。</td></tr>
+            <tr><td><code>403 PERMISSION_DENIED</code></td><td>没有权限码或数据 scope</td><td>显示无权限提示；不得用前端重试绕过。</td></tr>
+            <tr><td><code>409 CONFLICT</code></td><td>对象状态或版本已变化</td><td>刷新详情，要求重新确认。</td></tr>
+            <tr><td><code>422 SERVICE_NOT_AVAILABLE</code></td><td>服务已下架、价格版本失效或双价格不完整</td><td>订单保持草稿，刷新服务目录和估价。</td></tr>
+            <tr><td><code>422 PLAYER_NOT_ELIGIBLE</code></td><td>陪玩未 ACTIVE、不可接单或已有活跃订单</td><td>接单失败并刷新派单卡片，不改变订单。</td></tr>
+            <tr><td><code>422 REFERRAL_INELIGIBLE</code></td><td>自荐、重复账号或首笔消费后绑定</td><td>不创建关系，记录原因和必要风险事件。</td></tr>
+            <tr><td><code>409 RESERVATION_CONFLICT</code></td><td>预留状态或版本已变化</td><td>刷新资金摘要与对象，不重复捕获/释放。</td></tr>
+            <tr><td><code>422 INSUFFICIENT_AVAILABLE_BALANCE</code></td><td><code>availableMinor</code> 不足</td><td>显示差额与充值入口，不创建预留。</td></tr>
+            <tr><td><code>422 READINESS_INCOMPLETE</code></td><td>双方未都就绪</td><td>保持 ACCEPTED，显示未就绪方与倒计时。</td></tr>
+            <tr><td><code>428 STEP_UP_REQUIRED</code></td><td>敏感操作需要近期二次验证</td><td>打开二次验证流程，成功后重放原请求。</td></tr>
+            <tr><td><code>202 APPROVAL_PENDING</code></td><td>操作超出当前级别或金额阈值</td><td>显示审批编号和等待级别，禁止重复执行。</td></tr>
+            <tr><td><code>202 ROLE_ELEVATION_PENDING</code></td><td>检测到首次 L3/L4 Role，等待现有 L4 确认</td><td>保持原级别；Dashboard 显示待确认申请，Bot 不展示高级操作。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>10.7 第三方资金适配器接口</h3>
+        <pre>interface PaymentProvider {
+  discoverCapabilities(): Promise&lt;ProviderCapabilities&gt;
+  resolveUser(input): Promise&lt;ResolvedUser&gt;
+  getProviderBalance(externalUserId): Promise&lt;ProviderBalanceSnapshot&gt;
+  createHold(input): Promise&lt;Hold&gt;
+  getHold(lookup): Promise&lt;Hold&gt;
+  captureHold(input): Promise&lt;Hold&gt;
+  releaseHold(input): Promise&lt;Hold&gt;
+  createReservationDebit(input): Promise&lt;Transaction&gt;
+  createRefund(input): Promise&lt;Transaction&gt;
+  getTransaction(lookup): Promise&lt;Transaction&gt;
+  verifyWebhook(envelope): Promise&lt;VerifiedWebhook&gt;
+}</pre>
+        <p><code>adapter-contract.yaml</code> 的以上 11 个操作是唯一 Provider 契约。优先使用供应商原生 hold/capture/release；供应商不支持时使用本地 <code>FundReservation</code>，捕获前重新读取第三方余额并原子校验。不保留旧接口别名，也不允许提交订单时直接扣款。</p>
+
+        <h3>10.8 返佣保密边界</h3>
+        <p>被推荐用户的用户 API 不返回受益人、关系类型、比例、金额或状态，错误只返回通用资格结果。日志使用允许字段列表并脱敏；导出在服务端按 L1–L4 scope 二次裁剪；Discord 和其他通知模板不接受上述机密字段。只有当前用户作为受益人时可查自己收益，来源用户默认脱敏。</p>
+      </section>
+
+      <section id="events">
+        <h2>11. 事件、Sapphire 映射与 Discord 权限</h2>
+
+        <h3>11.1 主要事件</h3>
+        <table>
+          <thead><tr><th>来源</th><th>事件</th><th>处理</th></tr></thead>
+          <tbody>
+            <tr><td>Sapphire InteractionHandler</td><td>入口按钮、Select、Modal、订单与客服按钮</td><td>先快速 defer，附加 Actor Context 后调用统一 API；由 API 按用户、订单和客服任务校验权限。</td></tr>
+            <tr><td>Sapphire Listener</td><td>Presence 更新</td><td>只更新短期在线缓存/字段；不把在线等同于可接单。</td></tr>
+            <tr><td>Sapphire Listener</td><td>guildMemberUpdate / 启动对账</td><td>调用 Role Sync API；Role 移除立即降权，首次 L3/L4 只创建待确认升级。</td></tr>
+            <tr><td>业务域</td><td>FundsReserved / OrderSubmitted</td><td>订单提交时先原子创建预留，再生成派单候选和 Outbox。</td></tr>
+            <tr><td>业务域</td><td>OrderAccepted</td><td>添加频道权限、更新面板、关闭派单按钮。</td></tr>
+            <tr><td>业务域</td><td>OrderPartyReady / OrderServiceStarted</td><td>分别记录双方 readiness；两者齐全才自动进入 IN_SERVICE。</td></tr>
+            <tr><td>业务域</td><td>ReadinessTimedOut</td><td>创建 PLAYER_START_LATE 任务；不单方开始、不捕获。</td></tr>
+            <tr><td>业务域</td><td>ReservationCaptured / OrderCompleted</td><td>完成时捕获订单预留，再写消费、收益、合格返佣和归档 Outbox。</td></tr>
+            <tr><td>业务域</td><td>OrderConfirmationTimedOut</td><td>创建 COMPLETION_REVIEW 任务；不自动完成、不生成收益。</td></tr>
+            <tr><td>业务域</td><td>PlayerStartGraceExpired / CustomerNoShowReviewDue</td><td>创建对应客服任务并记录风险信号，不自动退款或扣罚。</td></tr>
+            <tr><td>业务域</td><td>ReservationReleased / OrderResolved</td><td>用户取消、待派单预留 30 分钟到期、拒绝或失败时释放；5 分钟派单轮次超时保持原预留；部分结案按决议捕获并释放剩余，追加 Adjustment。</td></tr>
+            <tr><td>业务域</td><td>PlayerEarningCreated / Reversed</td><td>同步 Dashboard 待确认收益；保留原记录和冲正链。</td></tr>
+            <tr><td>业务域</td><td>StaffTaskOpened</td><td>在客服处理频道创建可认领任务卡片。</td></tr>
+            <tr><td>业务域</td><td>ApprovalRequested</td><td>通知达到 required_level 的审批人，并同步 Dashboard 待审批数。</td></tr>
+            <tr><td>业务域</td><td>StaffRoleElevationRequested</td><td>保持当前级别，通知现有 L4 审核首次 L3/L4 授权。</td></tr>
+            <tr><td>业务域</td><td>StaffRoleSynchronized</td><td>记录 Role 快照和映射版本；级别变化时撤销旧会话。</td></tr>
+            <tr><td>业务域</td><td>StaffAccessChanged</td><td>撤销受影响后台会话，刷新 capabilities 并记录权限审计。</td></tr>
+            <tr><td>业务域</td><td>GiftRequested / FundsReserved</td><td>请求时立即预留并创建强制复核任务，不捕获或播报。</td></tr>
+            <tr><td>业务域</td><td>GiftApproved / ReservationCaptured</td><td>校验预留与版本，以稳定幂等键捕获；本地预留模式重新读取供应商余额。</td></tr>
+            <tr><td>业务域</td><td>GiftRejected / Expired / Withdrawn</td><td>释放礼物预留；重复事件不重复释放。</td></tr>
+            <tr><td>业务域</td><td>GiftCaptured</td><td>写消费事实、计算合格返佣、创建礼物播报任务。</td></tr>
+            <tr><td>第三方 Webhook</td><td>交易成功/失败/退款</td><td>验签后按 external_ref 幂等更新本地镜像。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>11.2 Sapphire 适配规则</h3>
+        <ul>
+          <li>按钮、Select 和 Modal 统一由 <code>InteractionHandler</code> 路由；<code>custom_id</code> 只保存对象类型、ID 和动作，不塞业务数据。</li>
+          <li>管理员命令先通过 <code>Precondition</code> 粗筛；按钮和 Modal 将真实点击者的 Discord User/Guild/Interaction ID 交给 API，随后由 API 解析内部身份并校验对象级权限。</li>
+          <li>Bot API Client 使用独立服务 Token；只有通过该服务身份的请求才能携带 Actor Header。Role ID 只允许提交到 Role Sync 用例，不作为普通业务接口的权限参数。</li>
+          <li><code>Listener</code> 负责 Gateway 与框架事件；业务服务通过 Outbox/事件请求 Bot 更新消息，避免在 Listener 内写交易逻辑。</li>
+          <li>部署入口和修复命令使用 <code>Command</code>；普通用户不需要面对大型斜杠菜单。</li>
+          <li>Sapphire <code>container</code> 只注册 API Client、logger、config 和 Discord renderer，禁止作为可随意写入的全局业务状态。</li>
+        </ul>
+
+        <h3>11.3 幂等与并发</h3>
+        <ul>
+          <li>Discord 的 <code>interaction.id</code> 作为交互幂等依据，重复提交返回首次结果。</li>
+          <li>预留创建、捕获、释放和退款必须携带稳定 <code>Idempotency-Key</code> 与预期版本，重试不生成新键。</li>
+          <li>接单采用条件更新：仅当订单仍为 <code>PENDING_DISPATCH</code> 且 <code>player_id IS NULL</code> 时成功。</li>
+          <li>返佣使用来源唯一约束，避免事件重放产生重复记录。</li>
+          <li>客服认领使用条件更新：仅当任务为 <code>OPEN</code> 时第一位客服可以认领。</li>
+          <li>礼物批准使用 <code>gift_request_id</code> 派生固定捕获幂等键；重复点击不重复捕获。</li>
+          <li>面板更新失败不回滚已经成功的业务事务；通过 Outbox 重试同步 Discord 展示。</li>
+        </ul>
+
+        <h3>11.4 Bot 最小 Discord 权限</h3>
+        <div class="chips">
+          <span class="chip">View Channels</span><span class="chip">Send Messages</span><span class="chip">Embed Links</span><span class="chip">Read Message History</span><span class="chip">Manage Messages</span><span class="chip">Manage Channels</span><span class="chip">Use Application Commands</span>
+        </div>
+        <p>需要启用 Presence Intent 才能读取在线状态。Bot 角色必须高于需要管理的陪玩角色，但不应授予 Administrator。公共入口、派单、礼物播报和订单父分类都使用配置的固定 ID。</p>
+      </section>
+
+      <section id="errors">
+        <h2>12. 错误处理与恢复</h2>
+        <table>
+          <thead><tr><th>场景</th><th>用户提示</th><th>系统处理</th></tr></thead>
+          <tbody>
+            <tr><td>第三方 API 超时</td><td>“余额服务暂时不可用，请稍后重试。”</td><td>不假设成功；记录 request_id，可安全重试。</td></tr>
+            <tr><td>可用余额不足</td><td>展示第三方账户余额、预留金额、可用余额、差额和充值入口。</td><td>订单保持草稿；礼物禁用确认；都不创建预留。</td></tr>
+            <tr><td>预留/捕获结果未知</td><td>“正在确认资金状态，请勿重复提交。”</td><td>锁定重复动作，按稳定幂等键查询；确认前不显示已完成/已送出。</td></tr>
+            <tr><td>创建频道失败</td><td>Ephemeral 告知并提供重试。</td><td>订单不进入可提交状态；后台记录失败原因。</td></tr>
+            <tr><td>两个陪玩同时接单</td><td>胜者成功；其他人看到“订单已被接取”。</td><td>数据库条件更新保证唯一获胜者。</td></tr>
+            <tr><td>派单无人接</td><td>显示匹配阶段、已通知数和超时下一步。</td><td>5 分钟超时保持原预留；继续等待只创建新派单轮次，取消或 30 分钟到期才释放。</td></tr>
+            <tr><td>客服任务被同时认领</td><td>后点击者看到“该任务已由其他客服认领”。</td><td>数据库条件更新保证唯一认领人。</td></tr>
+            <tr><td>礼物预留过期或版本变化</td><td>“送礼预留已失效，请刷新后重新发起。”</td><td>不捕获、不播报；原预留幂等释放，客服不手工改余额。</td></tr>
+            <tr><td>双方就绪超时</td><td>双方看到“已转客服核对”。</td><td>保持 ACCEPTED 和订单预留，创建 PLAYER_START_LATE；不单方开始或计费。</td></tr>
+            <tr><td>没有语音频道链接</td><td>卡片显示“未检测到订单语音”。</td><td>保留私聊用户和进入订单文字频道的入口，不阻断审核。</td></tr>
+            <tr><td>送礼请求长时间无人认领</td><td>用户看到“等待客服确认”。</td><td>10 分钟后提醒值班客服，不自动批准或拒绝。</td></tr>
+            <tr><td>Dashboard 会话失效</td><td>“登录已过期，请重新登录。”</td><td>返回 401，撤销前端缓存，不执行原操作。</td></tr>
+            <tr><td>Bot 服务身份或 Actor Context 无效</td><td>“暂时无法验证操作身份，请稍后重试。”</td><td>返回 401；不执行业务动作，记录 client_id、interaction_id 和拒绝原因。</td></tr>
+            <tr><td>Discord Role 尚未同步</td><td>“工作人员权限正在同步，请稍后重试。”</td><td>返回 STAFF_ACCOUNT_REQUIRED；不根据请求中自报 Role 临时放行。</td></tr>
+            <tr><td>首次获得 L3/L4 Role</td><td>“高级权限等待管理员确认。”</td><td>保持原级别并创建 ROLE_ELEVATION_PENDING；由现有 L4 审批。</td></tr>
+            <tr><td>Role 被移除或降级</td><td>“权限已更新，请重新登录。”</td><td>立即应用较低级别、递增 permissions_version、撤销 Dashboard 会话并拒绝旧权限请求。</td></tr>
+            <tr><td>后台越权操作</td><td>“当前级别无权执行；需要 L2/L3/L4。”</td><td>返回 403，不返回敏感对象内容，并记录被拒绝的权限码。</td></tr>
+            <tr><td>需要二次验证</td><td>弹出重新验证流程。</td><td>返回 428；验证成功后使用原 Idempotency-Key 重放一次。</td></tr>
+            <tr><td>审批已过期或数据已变化</td><td>“原审批已失效，请刷新并重新提交。”</td><td>不得沿用旧批准结果；创建新申请并关联旧记录。</td></tr>
+            <tr><td>礼物捕获成功、播报失败</td><td>送礼成功，不提示重复付款。</td><td>礼物保持 CAPTURED，Outbox 只重试消息，不重复捕获。</td></tr>
+            <tr><td>被推荐用户查询关系</td><td>返回通用不可见结果。</td><td>API/错误/日志/导出/通知都不暴露受益人、计划、比例、金额或状态。</td></tr>
+            <tr><td>退款失败</td><td>“取消处理中，客服将跟进。”</td><td>订单进入 EXCEPTION，不提前标记 CANCELLED。</td></tr>
+            <tr><td>服务价格已变化或下架</td><td>“服务价格已更新，请重新确认。”</td><td>草稿刷新目录版本；已提交订单继续使用原价格快照。</td></tr>
+            <tr><td>陪玩未通过审核或已有活跃订单</td><td>“当前无法接取此订单。”</td><td>拒绝接单，不泄露审核细节；刷新候选和派单卡片。</td></tr>
+            <tr><td>用户 30 分钟未确认完成</td><td>双方看到“等待客服核对”。</td><td>创建 COMPLETION_REVIEW；不自动完成、不生成陪玩收益。</td></tr>
+            <tr><td>陪玩/用户疑似爽约</td><td>显示“客服正在核对订单”。</td><td>创建 no-show 任务和风险事件；确认前不执行退款、补偿或扣罚。</td></tr>
+            <tr><td>人工结案金额不合法</td><td>“退款或收益金额超出订单范围。”</td><td>返回 422；不写结案、不调用第三方、不创建收益。</td></tr>
+            <tr><td>面板消息被删除</td><td>管理员触发修复。</td><td>根据订单数据库重建面板并更新 message_id。</td></tr>
+            <tr><td>用户/陪玩离开服务器</td><td>无公开提示。</td><td>保留历史；活跃订单提醒运营并进入异常处理。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>12.1 日志与可观测性</h3>
+        <ul>
+          <li>结构化日志至少包含 <code>request_id</code>、<code>client_id</code>、<code>actor_source</code>、<code>interaction_id</code>、<code>order_id</code>、<code>user_id</code>、<code>staff_id</code>、<code>permission_code</code> 和错误码。</li>
+          <li>关键指标：Bot/API 调用失败率、第三方 API 延迟、待派单时长、开始服务超时数、完成确认超时数、爽约/中断任务数、待确认陪玩收益、未认领客服任务时长、审批等待时长、Role 同步失败/待确认数、403 次数和失败 Job 数。</li>
+          <li>敏感凭证、绑定码和第三方原始签名不得写入日志；返佣受益人、关系、比例、金额和状态使用允许列表、权限分区和脱敏记录。</li>
+        </ul>
+      </section>
+
+      <section id="admin">
+        <h2>13. 客服与管理 Dashboard</h2>
+        <p class="lead">Dashboard 是客服和管理人员的主要工作界面，不是只读报表。设计目标是让 L1 能快速处理日常任务，同时让财务、配置、权限和破坏性操作严格停留在对应级别。</p>
+
+        <h3>13.0 当前 P0 竞品对齐能力</h3>
+        <ul>
+          <li>统一订单与客服任务工作台，支持连续认领、详情抽屉和客服接管。</li>
+          <li>数字化派单，包含候选筛选、已通知数、唯一接单、超时与人工转派。</li>
+          <li>四级细粒度 RBAC、Discord Role 映射、金额审批、step-up 与不可删除审计。</li>
+          <li>自动运营记账轨迹：余额快照、预留、消费、退款、陪玩收益、返佣和 Adjustment 进入同一业务时间线。</li>
+        </ul>
+        <p><strong>八项最小运营指标：</strong>今日订单、进行中订单、待处理任务、已完成净消费、礼物净消费、预留总额、派单成功率和异常数。所有指标必须定义时区、时间窗、币种、净额冲正口径与权限 scope。</p>
+
+        <h3>13.1 页面结构</h3>
+        <pre>┌─────────────────────────────────────────────────────────────────────┐
+│ 生产环境  全局搜索                 待审批 3   通知 5   L1 基础客服 │
+├──────────────┬──────────────────────────────────────────────────────┤
+│ 工作台       │ 今日订单 12  进行中 8  待处理 3  异常 1         │
+│              │ 完成净消费  礼物净消费  预留总额  派单成功率    │
+│ 客服任务     ├──────────────────────────────────────────────────────┤
+│ 订单         │ 我的任务                                             │
+│ 用户         │ #G-2088 送礼核对  等待 03:12  [进入详情]             │
+│ 陪玩         │ #P-1042 取消协助  等待 01:47  [进入详情]             │
+│ 服务目录     ├──────────────────────────────────────────────────────┤
+│ 陪玩收益     │ 订单 / 用户详情抽屉：时间线、频道链接、内部备注       │
+│ 礼物 / 返佣  │                                                      │
+│ 审批         │ 可用动作按 capabilities 显示                         │
+│ 审计         │                                                      │
+│ 系统设置     │                                                      │
+│ 权限管理     │                                                      │
+└──────────────┴──────────────────────────────────────────────────────┘</pre>
+        <ul>
+          <li>左侧导航按角色裁剪；没有查看权限的页面不显示。</li>
+          <li>顶部始终显示环境、当前级别、待审批数和账号菜单，避免在错误环境执行操作。</li>
+          <li>工作区采用列表 + 详情抽屉，客服处理完一项后可直接进入下一项，不需要反复跳页。</li>
+          <li>全局搜索支持订单号、Discord ID、业务用户 ID 和陪玩昵称；结果仍按当前数据 scope 脱敏。</li>
+        </ul>
+
+        <h3>13.2 页面与最低权限</h3>
+        <table>
+          <thead><tr><th>页面</th><th>主要内容</th><th>最低级别</th><th>高权限操作</th></tr></thead>
+          <tbody>
+            <tr><td>工作台</td><td>我的/团队待办、超时任务、活跃订单、异常摘要</td><td>L1：个人；L2：团队</td><td>L3/L4 可看全局</td></tr>
+            <tr><td>客服任务</td><td>类型、状态、等待时长、用户、订单/礼物、认领人、频道链接、内部备注</td><td>L1</td><td>L2+ 批准/拒绝、转派、关闭</td></tr>
+            <tr><td>订单</td><td>编号、状态、用户、陪玩、双价格快照、readiness、余额快照/预留/捕获/释放、消费/收益/返佣/Adjustment 时间线</td><td>L1 脱敏只读</td><td>L2 提交/执行限额内结案；L3 超额处理和恢复</td></tr>
+            <tr><td>用户</td><td>脱敏账号、绑定、消费摘要、订单、礼物、返佣、风险标记</td><td>L1 只读</td><td>L2 加风险标记；L3 暂停/恢复</td></tr>
+            <tr><td>陪玩</td><td>准入状态、在线/可接单状态、标签、当前订单、历史接单、收益和风险事件</td><td>L1 只读</td><td>L2 编辑标签；L3 审核、启用、暂停</td></tr>
+            <tr><td>服务目录</td><td>游戏、服务、区服、单位、最低数量、客户单价、陪玩结算单价、版本和状态</td><td>L2 只读</td><td>L3 创建版本、上架和下架</td></tr>
+            <tr><td>陪玩收益</td><td>订单、陪玩、结算快照、原始收益、冲正、确认和支付状态</td><td>L2 只读</td><td>L3 确认、冲正、标记已支付</td></tr>
+            <tr><td>礼物</td><td>审核队列、礼物流水、播报状态、目录和价格</td><td>L1 核对请求</td><td>L2/L3/L4 按金额审批；L3 编辑目录和价格</td></tr>
+            <tr><td>返佣</td><td>PROMOTER_FIRST_PURCHASE / PLAYER_LIFETIME、唯一来源、结算与 Adjustment</td><td>L1 不可看受益人/金额；L2 仅具体任务</td><td>L3/L4 绑定、纠错、确认、冲正和审计</td></tr>
+            <tr><td>审批</td><td>申请人、动作、对象、金额、影响预览、所需级别、到期时间</td><td>L2 查看相关项</td><td>L3/L4 按 required_level 批准</td></tr>
+            <tr><td>审计</td><td>操作者、级别、权限码、前后值、原因、审批链、IP/设备摘要</td><td>L1 自己；L2 团队</td><td>L3 全业务；L4 全系统</td></tr>
+            <tr><td>系统设置</td><td>频道/角色 ID、返佣、超时阈值、时区、归档和提醒规则</td><td>L3</td><td>L4 管理集成和密钥</td></tr>
+            <tr><td>权限管理</td><td>后台账号、Discord Role 映射、L1–L4 生效/请求级别、待确认升级、会话、最近登录和 MFA</td><td>L4</td><td>确认 L3/L4、修改映射、降权、撤销会话</td></tr>
+          </tbody>
+        </table>
+
+        <h3>13.3 L1 日常处理流程</h3>
+        <ol>
+          <li>从“我的任务”认领一项，详情抽屉展示必要的脱敏用户信息、订单时间线和 Discord 频道入口。</li>
+          <li>通过语音或私聊核对，将结论写入内部备注；内部备注不发送给用户。</li>
+          <li>若不涉及高风险操作，L1 可完成“已联系、资料已补充、升级异常”等非破坏性动作。</li>
+          <li>若需要退款、已接单取消、爽约/中断结案、收益调整、封禁或配置变更，L1 只能提交建议，填写原因码、建议退款、建议收益和证据说明。</li>
+          <li>任务进入“等待 L2/L3/L4”状态，L1 可查看进度但不能重复执行或修改审批内容。</li>
+        </ol>
+
+        <h3>13.4 高风险操作流程</h3>
+        <div class="flow"><span>选择动作</span><i>→</i><span>API 检查权限/金额/对象状态</span><i>→</i><span>预览影响并填写原因</span><i>→</i><span>二次验证或升级审批</span><i>→</i><span>幂等执行</span><i>→</i><span>审计与通知</span></div>
+        <ul>
+          <li>Dashboard Dialog 必须显示用户、陪玩、订单、动作、客户退款、陪玩收益、资金去向和不可逆影响，不使用模糊的“确定吗”。Dashboard Dialog 是网页后台组件，不等同于 Discord Modal，也不受 Discord 的五组件和纵向布局限制。</li>
+          <li>超权限或超金额时不显示伪成功，而是返回审批编号、所需级别和等待状态。</li>
+          <li>审批人打开请求时重新读取对象和余额；数据变化后原审批失效，必须重新提交。</li>
+          <li>重复点击、网络重试或多标签页执行同一操作时使用同一 Idempotency-Key，最多执行一次。</li>
+          <li>完成后同时更新 Dashboard、Discord 订单面板和相关客服任务。</li>
+        </ul>
+
+        <h3>13.5 权限在界面中的表现</h3>
+        <ul>
+          <li>无页面查看权限：导航隐藏，直接访问 URL 返回 403 页面。</li>
+          <li>可查看但不可执行：显示禁用按钮和原因，例如“需要 L2”或“超过 ¥500 退款上限”，并提供“提交审批”。</li>
+          <li>敏感字段按级别脱敏；第三方密钥、完整支付账号和原始签名不返回到前端。</li>
+          <li>角色或权限被修改时立即撤销旧会话；下一次 API 调用不能继续沿用缓存权限。</li>
+          <li>检测到 L3/L4 Discord Role 时显示“待确认级别”和来源 Role；确认前不展示高级操作。Role 被移除后不允许继续保留旧级别按钮。</li>
+          <li>所有金额显示币种和最小单位换算结果；时间同时显示业务时区和相对等待时长。</li>
+        </ul>
+
+        <h3>13.6 必须具备的页面状态</h3>
+        <table>
+          <thead><tr><th>状态</th><th>界面行为</th></tr></thead>
+          <tbody>
+            <tr><td>Loading</td><td>保留表格和抽屉稳定尺寸，显示骨架，不移动操作按钮。</td></tr>
+            <tr><td>Empty</td><td>说明当前筛选下没有任务，并提供清除筛选；不展示宣传性空状态。</td></tr>
+            <tr><td>Error</td><td>显示 request_id、可重试动作和错误摘要；未知资金结果不允许再次执行。</td></tr>
+            <tr><td>No Permission</td><td>说明所需级别/权限码，记录越权尝试，不泄露目标数据。</td></tr>
+            <tr><td>Approval Pending</td><td>显示审批编号、申请人、等待级别、过期时间和当前状态。</td></tr>
+            <tr><td>Stale Data</td><td>对象版本变化时禁用原操作，刷新详情后要求重新确认。</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout danger">
+          <strong>删除原则：</strong>订单、结案、外部交易镜像、消费、陪玩收益、礼物、返佣、退款、订单事件和审计日志永远没有“永久删除”按钮。纠错使用冲正、禁用、归档或追加更正记录。只有 L4 可发起删除非财务个人资料，并且必须通过数据保留规则、二次验证和审计。
+        </div>
+      </section>
+
+      <section id="deploy">
+        <h2>14. 部署与配置</h2>
+
+        <h3>14.1 最小部署拓扑</h3>
+        <pre>Docker Compose
+├── api        自有业务 API + 管理端静态文件
+├── bot        SapphireClient / Pieces / Discord 同步
+└── postgres   业务数据库
+
+外部依赖
+├── Discord API
+└── 第三方支付/余额 API</pre>
+
+        <h3>14.2 环境配置</h3>
+        <table>
+          <thead><tr><th>配置</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td><code>DISCORD_TOKEN</code></td><td>Bot Token，仅通过 Secret 注入。</td></tr>
+            <tr><td><code>BOT_API_TOKEN</code></td><td>Bot 调用统一业务 API 的受限服务凭证；不得用于 Dashboard 或第三方客户端。</td></tr>
+            <tr><td><code>DISCORD_GUILD_ID</code></td><td>原型目标服务器。</td></tr>
+            <tr><td><code>PRIVATE_ORDER_CATEGORY_ID</code></td><td>私密订单频道父分类。</td></tr>
+            <tr><td><code>DISPATCH_CHANNEL_ID</code></td><td>集中派单频道。</td></tr>
+            <tr><td><code>GIFT_REVIEW_CHANNEL_ID</code></td><td>送礼审核请求频道。</td></tr>
+            <tr><td><code>STAFF_TASK_CHANNEL_ID</code></td><td>订单协助、取消协助和异常任务的客服处理频道。</td></tr>
+            <tr><td><code>GIFT_BROADCAST_CHANNEL_ID</code></td><td>礼物播报频道。</td></tr>
+            <tr><td><code>OPERATIONS_ALERT_CHANNEL_ID</code></td><td>Bot、Role、第三方接口和失败任务的运营告警频道。</td></tr>
+            <tr><td><code>STAFF_L1_ROLE_ID ... STAFF_L4_ROLE_ID</code></td><td>Discord Role 到内部请求级别的初始映射；运行时保存为版本化映射，<code>staff_accounts</code> 才是 API 授权事实来源。</td></tr>
+            <tr><td><code>BOOTSTRAP_L4_DISCORD_USER_ID</code></td><td>仅首次部署创建第一个 L4；成功后禁用 bootstrap，后续 L3/L4 必须由现有 L4 确认。</td></tr>
+            <tr><td><code>DISCORD_OAUTH_CLIENT_ID / SECRET</code></td><td>Dashboard 登录；Secret 仅在服务端。</td></tr>
+            <tr><td><code>DASHBOARD_SESSION_SECRET</code></td><td>签名后台会话 Cookie，通过 Secret 管理注入。</td></tr>
+            <tr><td><code>L2_GIFT_LIMIT_MINOR</code></td><td>默认 200000（人民币 ¥2,000）。</td></tr>
+            <tr><td><code>L2_REFUND_LIMIT_MINOR</code></td><td>默认 50000（人民币 ¥500）。</td></tr>
+            <tr><td><code>L4_DIRECT_EXECUTION_THRESHOLD_MINOR</code></td><td>默认 500000（人民币 ¥5,000）；达到门槛后最低要求 L4 直接执行。</td></tr>
+            <tr><td><code>DISPATCH_TIMEOUT_MINUTES</code></td><td>默认 5；无人接单后保持原预留，允许继续等待、取消释放或联系客服。</td></tr>
+            <tr><td><code>ORDER_RESERVATION_TTL_MINUTES</code></td><td>默认 30；待派单订单无人处理到期后自动取消并释放原预留。</td></tr>
+            <tr><td><code>PLAYER_START_GRACE_MINUTES</code></td><td>默认 10；超时创建陪玩迟到/爽约核对任务。</td></tr>
+            <tr><td><code>CUSTOMER_NO_SHOW_MINUTES</code></td><td>默认 15；接单后用户未出现时创建人工核对任务。</td></tr>
+            <tr><td><code>ORDER_CONFIRMATION_TIMEOUT_MINUTES</code></td><td>默认 30；用户未确认完成时转客服，不自动完成。</td></tr>
+            <tr><td><code>DATABASE_URL</code></td><td>PostgreSQL 连接。</td></tr>
+            <tr><td><code>PAYMENT_API_URL / KEY</code></td><td>第三方接口地址与凭证。</td></tr>
+            <tr><td><code>APP_TIMEZONE / CURRENCY</code></td><td>展示时区与单一币种。</td></tr>
+          </tbody>
+        </table>
+        <p class="small">Discord 频道和 Role 环境变量仅用于首次部署引导。完成初始化后，运行时配置以统一 API 中的 Guild 配置版本为准。Sapphire 会根据入口文件位置发现 Commands、Listeners 和其他 Pieces；<code>package.json</code> 的 <code>main</code> 必须指向实际调用 <code>client.login()</code> 的编译后入口，并在启动时校验 Piece 目录是否成功加载。</p>
+
+        <h3>14.3 <code>/bot-config</code> 基础配置面板</h3>
+        <p><code>/bot-config</code> 是 Guild 内 L3/L4 使用的管理命令，返回仅操作者可见的 ephemeral 配置消息。L3 可管理公共入口、订单分类、派单、陪玩工作台、礼物核对/播报、客服任务、运营告警、提醒时限和功能开关；L4 累积继承这些能力，并可管理陪玩及 L1–L4 Discord Role 映射。</p>
+        <ol>
+          <li>Command 从 Discord Interaction 解析 Guild 和操作者，调用统一 API 获取当前配置、版本与权限。</li>
+          <li>频道使用 <code>Channel Select</code>，身份组使用 <code>Role Select</code>，固定选项使用 String Select，数字和模板文本使用 Modal。</li>
+          <li>选择新值后先调用 <code>validateBotConfigChange</code>，显示旧值、新值和权限/类型检查；校验通过时 API 签发绑定操作者、Guild、版本、规范化变更和原因的短期 <code>validationToken</code>。</li>
+          <li>只有点击“确认应用”才携带 <code>validationToken</code> 调用 <code>updateBotConfig</code>；缺失、过期或内容不匹配时 API 拒绝，不能绕过预览直接保存。</li>
+          <li>API 使用 <code>expectedVersion</code> 防止并发覆盖，保存前后值、原因、真实 staff actor 和时间；成功后立即刷新对应 Guild 缓存，使下一次派单、播报和功能开关判断使用新版本，Bot 重启后也从 API 重新加载。</li>
+        </ol>
+        <div class="callout"><strong>程序边界：</strong>建议使用 <code>commands/admin/bot-config.ts</code>、<code>interaction-handlers/bot-config/</code>、<code>presenters/bot-config-presenter.ts</code> 和既有 Business API Client。Bot 不保存配置权限或业务规则；<code>custom_id</code> 只携带操作类型与短期会话 ID。Bot Token、支付密钥、数据库连接、游戏/价格、礼物目录和返佣规则不允许从 Discord 修改。</div>
+
+        <h3>14.4 基础安全</h3>
+        <ul>
+          <li>生产、测试使用不同 Discord App、数据库与第三方沙箱账号。</li>
+          <li>数据库每日备份；至少验证一次恢复流程。</li>
+          <li>Dashboard 使用 Discord OAuth2 登录，并要求存在有效的本地 <code>staff_accounts</code>；L1/L2 可由 Role 同步创建，L3/L4 需确认。Discord Server 角色不能单独授予后台权限。</li>
+          <li>Bot 只能通过统一 API 访问业务数据；API 仅对有效 Bot 服务身份接受 Actor Header，并从数据库重新解析真实用户和权限。</li>
+          <li>启动和 <code>guildMemberUpdate</code> 会对账 Role；L1/L2 可自动生效，首次 L3/L4 必须由现有 L4 确认，降级和撤权立即生效。</li>
+          <li>L3/L4 必须启用 MFA；敏感操作还需 15 分钟内的 step-up 验证。</li>
+          <li>会话使用 HttpOnly、Secure、SameSite Cookie；禁止把访问令牌存入 localStorage；写操作校验 CSRF。</li>
+          <li>角色修改、人员离职、异常登录和所有者操作可立即撤销全部会话。</li>
+          <li>第三方 Webhook 必须验签并限制时间窗口，防止重放。</li>
+          <li>Bot Token、数据库密码和第三方 Key 不进入仓库或前端。</li>
+        </ul>
+      </section>
+
+      <section id="testing">
+        <h2>15. 测试策略</h2>
+
+        <h3>15.1 自动化测试</h3>
+        <table>
+          <thead><tr><th>层级</th><th>重点</th></tr></thead>
+          <tbody>
+            <tr><td>单元测试</td><td>服务目录双价格与快照、即时单校验、陪玩准入/候选筛选、双方就绪与爽约超时、预留/捕获/释放、结案金额边界、陪玩收益与 Adjustment、礼物目标，以及两类返佣计划的资格和金额快照。</td></tr>
+            <tr><td>数据库集成</td><td>目录版本不可覆盖、同一用户币种下的并发预留、并发接单唯一性、双方 readiness、取消预览版本、结案/退款/收益事务一致性、礼物捕获幂等、返佣来源互斥与一次性计划只结算一次。</td></tr>
+            <tr><td>第三方适配器</td><td>沙箱余额、原生 hold/capture/release、批准的本地预留降级、捕获、退款、超时、未知结果、Webhook 验签与重放。</td></tr>
+            <tr><td>API</td><td>Bot 服务鉴权、Actor Context、Dashboard 会话、身份解析、权限码、scope、金额阈值、对象状态、越权访问、参数校验和幂等；同一用例从 Bot/Dashboard 调用得到一致业务结果。</td></tr>
+            <tr><td>RBAC / 审批</td><td>L1–L4 累积权限矩阵、最低级别比较、Discord Role 映射、L1/L2 自动生效、L3/L4 首次确认、立即降级/撤权、金额边界、高级别直接执行、角色变化撤销会话。</td></tr>
+            <tr><td>Sapphire 适配层</td><td>InteractionHandler 路由、Actor Header 构造、Precondition 粗筛、guildMemberUpdate/启动对账、Listener 事件转发、API 错误响应和 custom_id 解析。</td></tr>
+          </tbody>
+        </table>
+
+        <h3>15.2 Discord 端手工 E2E</h3>
+        <ul class="checklist">
+          <li>新用户完成绑定，并只能看到自己的余额和历史。</li>
+          <li>用户创建私密频道，非相关普通成员无法查看。</li>
+          <li>用户只能从启用且双价格完整的目录创建即时单；余额不足时不能派单。</li>
+          <li>订单提交后即使目录改价，订单金额和陪玩结算仍使用原版本快照。</li>
+          <li>仅 ACTIVE、标签匹配、在线、可接单且无活跃订单的陪玩收到派单；PENDING_REVIEW/PAUSED/SUSPENDED 均不能接单。</li>
+          <li>两名陪玩同时接单时只有一人成功。</li>
+          <li>接单人自动加入用户频道，其他陪玩不能访问。</li>
+          <li>订单按合法顺序开始、申请完成、确认完成。</li>
+          <li>接单后任一方未在就绪宽限期内确认、或用户 15 分钟未出现时只创建客服任务，不自动开始计费、退款、扣罚、捕获或生成收益。</li>
+          <li>陪玩申请完成后用户 30 分钟未确认时进入客服核对，不自动完成或生成收益。</li>
+          <li>客服结案必须同时填写原因码、退款、陪玩收益和说明；超范围金额被拒绝且不产生部分写入。</li>
+          <li>用户提交礼物后不会立即扣款，客服处理频道会出现完整审核卡片。</li>
+          <li>两名客服同时认领时只有一人成功；非客服无法操作审核按钮。</li>
+          <li>有语音链接时客服可进入；无链接时卡片明确显示并可私聊用户。</li>
+          <li>有权限的 L2–L4 批准后礼物只扣款一次，播报失败后重试不重复扣款。</li>
+          <li>礼物接收人始终由订单当前 player_id 推导，伪造 receiver_id 不能把礼物送给其他人。</li>
+          <li>用户主动求助、已接单取消和自动化失败都能创建客服任务。</li>
+          <li>L1 可以核对并提交审批，但直接调用送礼批准、退款、封禁和配置接口均返回 403。</li>
+          <li>L2 可以批准 ¥2,000 以内礼物和 ¥500 以内退款，超额请求返回 APPROVAL_PENDING。</li>
+          <li>达到 ¥5,000 的送礼或退款最低要求 L4；L4 可直接发起并执行，同一人员操作仍须填写原因、完成二次验证并留下审计。</li>
+          <li>L4 修改工作人员角色后，被修改账号的旧 Dashboard 会话立即失效。</li>
+          <li>同一张未接单订单分别通过 Discord 按钮和 Dashboard 执行取消时，均调用同一用例并得到相同状态、退款规则和审计结构。</li>
+          <li>伪造 Actor Header、Discord Role ID、staff_id 或 level 不能取得权限；只有有效 Bot 服务身份或 Dashboard 会话可建立操作者上下文。</li>
+          <li>增加 L1/L2 Role 后自动获得对应内部级别；首次增加 L3/L4 Role 只产生待确认升级，现有 L4 批准后才生效。</li>
+          <li>移除或降低 Discord Role 后旧会话立即失效，后续 Bot 和 Dashboard 请求都按较低内部级别判断。</li>
+          <li>任何级别都找不到硬删除财务/审计记录的 UI 或 API。</li>
+          <li>完成符合条件的净消费后，老板带新最多生成一次 <code>PROMOTER_FIRST_PURCHASE</code>，陪玩来源按配置生成 <code>PLAYER_LIFETIME</code>；重复事件不重复生成。</li>
+          <li>自己推荐自己、相同账号互荐或首笔符合条件消费后绑定推荐关系均被拒绝。</li>
+          <li>正常完成生成一条 PENDING 陪玩收益；部分/全额退款按结案记录创建收益冲正，原记录保持不变。</li>
+          <li>删除面板后管理员可从后台重建。</li>
+        </ul>
+
+        <h3>15.3 测试数据</h3>
+        <p>准备 2 名用户、4 名分别为 PENDING_REVIEW/ACTIVE/PAUSED/SUSPENDED 的陪玩、L1–L4 各 1 名工作人员、2 个服务目录版本（含已下架旧版）、3 种礼物、余额充足/不足的第三方沙箱账号，以及正常完成、开始迟到、用户爽约、服务中断、完成超时和部分退款订单。另准备自荐/重复账号推荐、有效/无效 Bot Token、伪造 Actor Header，以及 ¥499/¥500/¥501 退款和 ¥1,999/¥2,000/¥2,001/¥5,000 送礼边界数据。</p>
+      </section>
+
+      <section id="milestones">
+        <h2>16. 开发里程碑</h2>
+        <table>
+          <thead><tr><th>阶段</th><th>交付内容</th><th>退出条件</th></tr></thead>
+          <tbody>
+            <tr><td><span class="priority">M0</span>骨架与接口</td><td>SapphireClient、Piece 目录、统一 API Client、Bot 服务鉴权、Actor Context、数据库迁移、API 健康检查、第三方 Mock/适配器、配置校验。</td><td>本地一条命令启动；Sapphire Pieces 加载成功；Bot 只能通过统一 API 完成带真实操作者归因的测试调用。</td></tr>
+            <tr><td><span class="priority">M1</span>目录、用户与即时单</td><td>服务目录双价格/版本、账户绑定、服务中心、私密频道、常驻面板、即时单草稿、价格快照、资金三项摘要和订单预留。</td><td>启用服务可下单；下架/改价不影响已提交订单；提交只预留且并发不会超额；未来预约被拒绝。</td></tr>
+            <tr><td><span class="priority">M2</span>陪玩准入与订单闭环</td><td>陪玩工作台、状态/标签筛选、透明派单、并发抢单、频道权限、双方就绪、完成确认超时、取消预览和异常结案。</td><td>正常单和四类异常单都能闭环；未捕获订单释放、已捕获订单退款，且不会自动裁决争议。</td></tr>
+            <tr><td><span class="priority">M3</span>收益、礼物与返佣</td><td>陪玩收益创建/确认/支付标记/Adjustment、礼物请求预留/人工复核/捕获/播报、消费历史、两类返佣计划与保密。</td><td>订单结案后消费、收益和返佣一致；礼物目标、资金预留、互斥来源和返佣保密规则不能绕过。</td></tr>
+            <tr><td><span class="priority">M4</span>Dashboard、RBAC 与 Bot 配置</td><td>工作台、任务/订单/用户/陪玩/礼物/返佣页面、L1–L4 权限、Discord Role 映射与同步、<code>/bot-config</code>、L3/L4 首次确认、审批队列、金额阈值、MFA/step-up、审计和失败任务处理。</td><td>四级账号通过权限矩阵 E2E；L3 可管理运营配置、L4 可管理 Role；Role 升降级正确同步和撤销会话；L1 无法执行破坏性操作。</td></tr>
+            <tr><td><span class="priority">M5</span>验收部署</td><td>测试服务器演练、安全检查、备份恢复、部署文档、验收记录。</td><td>全部 P0 验收标准通过，无阻断级缺陷。</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout warn">
+          <strong>开发顺序：</strong>先用 Mock Payment Provider 打通业务闭环，再接真实第三方沙箱。不要在第三方接口尚未稳定时阻塞 Discord 交互与状态机开发。
+        </div>
+      </section>
+
+      <section id="acceptance">
+        <h2>17. Prototype 验收标准</h2>
+
+        <h3>17.1 用户体验</h3>
+        <ul class="checklist">
+          <li>用户从公共入口开始，无需输入命令即可创建订单。</li>
+          <li>已绑定用户从点击入口到提交有效订单，主要操作不超过 4 个阶段。</li>
+          <li>订单频道仅用户、接单陪玩、Bot 和员工可见。</li>
+          <li>订单面板始终显示最新状态、金额、需求和当前可用动作。</li>
+          <li>个人余额、消费和返佣仅以私密/ephemeral 方式展示。</li>
+        </ul>
+
+        <h3>17.2 订单与派单</h3>
+        <ul class="checklist">
+          <li>字段不完整、余额不足或扣款失败时，订单不会进入待派单。</li>
+          <li>只有双价格完整且已上架的服务可下单；订单保存目录版本、客户价和陪玩结算价快照。</li>
+          <li>Prototype 只接受即时单，不接受未来预约时间。</li>
+          <li>候选陪玩必须 ACTIVE、标签匹配、Discord 在线、可接单且无活跃订单。</li>
+          <li>并发接单只产生一名成功陪玩，数据库、订单频道和派单消息最终一致。</li>
+          <li>接单成功后陪玩在 5 秒内被加入订单频道，原派单按钮失效。</li>
+          <li>订单只能按定义的状态机迁移；越权或非法操作被拒绝并记录。</li>
+          <li>待派单取消时，预留释放成功后才能进入已取消；未捕获资金不调用退款。</li>
+          <li>用户求助、已接单取消和自动化异常都会生成可认领的客服任务。</li>
+          <li>开始宽限、用户爽约和完成确认超时只创建客服任务，不自动退款、扣罚、完成或结算。</li>
+          <li>人工结案必须原子地写入原因、退款、陪玩收益、订单事件和审计；任何一步失败都不产生半完成结果。</li>
+        </ul>
+
+        <h3>17.3 礼物、客服、消费与返佣</h3>
+        <ul class="checklist">
+          <li>每个送礼请求都会先进入客服处理频道，未经有权限的 L2–L4 按金额规则批准，不会调用第三方扣款。</li>
+          <li>客服卡片显示用户、目标陪玩、礼物、金额、余额、订单以及语音链接或无语音提示。</li>
+          <li>有权限的审批人批准时 API 校验并捕获请求创建时的原预留；每个礼物请求最多捕获一次并生成一条消费记录，客服不手工重算余额。</li>
+          <li>礼物扣款成功后即使播报失败，也不会要求用户再次付款。</li>
+          <li>订单和礼物消费均可在用户消费历史中分页查询。</li>
+          <li>每个被推荐用户最多一个有效来源且两计划互斥；老板带新按配置的一次性固定额或首笔净消费比例结算，陪玩来源按配置对长期净消费返点。</li>
+          <li>同一消费来源不会重复生成返佣；退款会产生可审计的冲正。</li>
+          <li>礼物只能送给关联订单当前接单陪玩；客户端不能指定其他接收人。</li>
+          <li>推荐关系拒绝自荐、重复账号及首笔符合条件消费后绑定。</li>
+          <li>订单完成或人工结案生成陪玩收益；退款只通过冲正调整，原收益不可修改或删除。</li>
+        </ul>
+
+        <h3>17.4 Dashboard 与权限</h3>
+        <ul class="checklist">
+          <li>L1–L4 登录后看到与角色匹配的导航、数据范围、按钮和金额阈值。</li>
+          <li>L1 可以完成查询、认领、联系、备注和提交审批，但无法直接扣款、退款、取消已接单订单、封禁、改配置或删除。</li>
+          <li>API 在任何入口都执行相同的权限码、scope、金额和对象状态检查；前端隐藏按钮不是唯一防线。</li>
+          <li>Bot 与 Dashboard 复用同一业务 API 和应用用例；同一操作者对同一对象执行同一动作时，状态迁移、金额规则、审批和审计结果一致。</li>
+          <li>Bot 业务请求具有可验证的服务身份和真实 Actor Context；客户端提交的 actor_id、level 或 Role ID 不能直接改变授权结果。</li>
+          <li>Discord Role 映射可在 Dashboard 查看；L1/L2 自动生效，首次 L3/L4 等待现有 L4 确认，Role 降级/移除立即撤权并撤销会话。</li>
+          <li>L2 超过 ¥2,000 送礼或 ¥500 退款时得到审批编号；不会执行半成功交易。</li>
+          <li>达到 ¥5,000 的操作最低要求 L4；L4 可以直接执行，不强制独立申请人与批准人。</li>
+          <li>角色变更立即撤销旧会话；L3/L4 敏感操作要求近期二次验证。</li>
+          <li><code>/bot-config</code> 仅返回 ephemeral 配置消息；L3 可修改运营字段，L4 继承并可修改 Role 映射；所有修改先预览校验，再按版本确认应用并写不可删除审计。</li>
+          <li>财务和审计数据只有冲正、禁用、归档或追加更正，没有任何硬删除路径。</li>
+        </ul>
+
+        <h3>17.5 运维与安全</h3>
+        <ul class="checklist">
+          <li>常见异常可从管理端查看并重试，不需要直接修改数据库。</li>
+          <li>第三方回调验签、重复事件幂等、关键管理员操作有审计记录。</li>
+          <li>每条 Bot/Dashboard 写操作审计均能追溯 client_id、actor_source、真实操作者和可选 interaction_id。</li>
+          <li>日志不含 Bot Token、第三方 Key、绑定码或支付敏感数据。</li>
+          <li>测试环境完成一次数据库备份恢复和 Bot 重启恢复演练。</li>
+          <li>所有 P0 E2E 场景通过，且没有阻断目录计价、下单、扣款、接单、结案、收益或权限隔离的缺陷。</li>
+        </ul>
+      </section>
+
+      <section id="decisions">
+        <h2>18. 开发前需要锁定的配置</h2>
+        <p>以下项目不改变架构，但必须在接入真实环境前确定。若暂未决定，可使用文档中的 prototype 默认值。</p>
+        <table>
+          <thead><tr><th>决策项</th><th>Prototype 默认值</th></tr></thead>
+          <tbody>
+            <tr><td>Discord Bot 基础框架</td><td><code>@sapphire/framework</code> + <code>discord.js</code> + TypeScript；业务逻辑保留在自有服务。</td></tr>
+            <tr><td>统一业务 API</td><td>Bot 与 Dashboard 复用同一 API/应用用例；Bot 不直接访问业务数据库，不在 Pieces 内复制状态机、资金或权限规则。</td></tr>
+            <tr><td>Bot 调用身份</td><td>受限服务 Token + Discord User/Guild/Interaction Actor Context；API 从数据库解析真实用户和权限。</td></tr>
+            <tr><td>Dashboard 管理级别</td><td>L1 基础客服、L2 客服主管、L3 运营负责人、L4 管理员/所有者；权限向下累积继承，API 以最低级别和 permission_code 强制授权。</td></tr>
+            <tr><td>Discord Role 同步</td><td>最高映射 Role 作为请求级别；L1/L2 自动生效，首次 L3/L4 由现有 L4 确认，降级/移除立即撤权并撤销会话。</td></tr>
+            <tr><td>首个 L4</td><td>仅部署初始化使用一次性 <code>BOOTSTRAP_L4_DISCORD_USER_ID</code>，成功后关闭 bootstrap。</td></tr>
+            <tr><td>L2 金额阈值</td><td>送礼审批 ≤ ¥2,000；退款 ≤ ¥500；更高金额升级 L3。</td></tr>
+            <tr><td>L4 高额直接执行阈值</td><td>单笔 ≥ ¥5,000 时最低要求 L4；L4 可由同一人发起并执行，不要求独立复核，但必须完成 step-up、填写原因并保留审计。</td></tr>
+            <tr><td>Dashboard 登录</td><td>Discord OAuth2 + 有效的本地 staff_accounts；L1/L2 可由 Role 同步创建，L3/L4 确认后启用并要求 MFA。</td></tr>
+            <tr><td>数据删除</td><td>交易、订单结案、消费、陪玩收益、返佣、订单事件和审计记录任何级别都不可硬删除，只能冲正或追加更正。</td></tr>
+            <tr><td>第三方下单资金模式</td><td>提交时创建订单预留，完成确认或受控结案时捕获；捕获前取消释放预留，捕获后才使用退款。</td></tr>
+            <tr><td>账户绑定方式</td><td>第三方一次性绑定码；管理员可在后台修复。</td></tr>
+            <tr><td>订单类型</td><td>只支持“尽快开始”的即时单；预约单、排班和时间段冲突检测延后。</td></tr>
+            <tr><td>服务目录与计价</td><td>每个启用服务配置计价单位、最低单位数、客户单价和陪玩结算单价；未配置双价格不得上架，订单保存版本快照。</td></tr>
+            <tr><td>用户/陪玩活跃订单上限</td><td>用户和陪玩各 1 个；已有订单时用户跳转现有频道，陪玩不得接取第二单。</td></tr>
+            <tr><td>陪玩准入</td><td>PENDING_REVIEW / ACTIVE / PAUSED / SUSPENDED；只有 ACTIVE 可进入派单。</td></tr>
+            <tr><td>派单候选</td><td>ACTIVE + 标签匹配 + Discord 在线 + AVAILABLE + 无活跃订单。</td></tr>
+            <tr><td>派单超时</td><td>5 分钟后保持订单与原预留，用户可继续等待、取消释放或联系客服；继续等待只创建新派单轮次，不自动扩大候选范围。</td></tr>
+            <tr><td>待派单预留到期</td><td>订单提交 30 分钟仍无人处理时自动取消并释放原预留，不调用退款。</td></tr>
+            <tr><td>开始与爽约</td><td>陪玩开始宽限 10 分钟、用户未出现核对点 15 分钟；超时只创建客服任务，不自动裁决。</td></tr>
+            <tr><td>完成确认</td><td>用户 30 分钟未确认时创建 COMPLETION_REVIEW；必须由用户或有权限的员工确认，不自动完成。</td></tr>
+            <tr><td>异常结案</td><td>客服必须填写原因码、退款金额、陪玩收益金额和处理说明；金额与审批受订单快照和现有阈值限制。</td></tr>
+            <tr><td>陪玩收益</td><td>按订单结算价快照生成 PENDING 收益；L3 确认、人工标记支付，退款创建冲正；不自动提现。</td></tr>
+            <tr><td>礼物可用阶段</td><td>已接单、服务中、待确认、完成后 24 小时。</td></tr>
+            <tr><td>礼物接收人</td><td>固定为关联订单当前接单陪玩；客户端不能指定其他 receiver_id。</td></tr>
+            <tr><td>礼物确认模式</td><td>所有送礼请求强制客服认领并核对；由有权限的 L2–L4 按金额规则批准后才查询余额和扣款。</td></tr>
+            <tr><td>订单/取消客服模式</td><td>默认自动；用户求助、规则命中、已接单取消或自动化失败时客服接管。</td></tr>
+            <tr><td>语音上下文</td><td>订单可选保存 voice_channel_id；没有语音链接时客服使用订单文字频道或私聊。</td></tr>
+            <tr><td>送礼审核提醒</td><td>10 分钟无人认领时提醒值班客服，不自动批准或拒绝。</td></tr>
+            <tr><td>返佣基数</td><td>已完成订单净消费 + 未冲正礼物消费。</td></tr>
+            <tr><td>返佣比例</td><td>默认 2%，管理员可按关系设置至 5%。</td></tr>
+            <tr><td>返佣绑定资格</td><td>禁止自荐和相同账号互荐；必须在被推荐人的首笔符合条件消费前绑定。</td></tr>
+            <tr><td>频道保留</td><td>订单完成后 24 小时只读，再移动到归档分类。</td></tr>
+            <tr><td>币种与时区</td><td>人民币；业务展示时区由服务器配置。</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout">
+          <strong>进入开发的最低条件：</strong>取得 Discord 测试服务器管理权限、第三方沙箱 API 文档与凭证、测试用户数据，并确定游戏/服务、计价单位、客户单价、陪玩结算单价、陪玩标签、派单频道、客服处理频道和礼物播报频道。
+        </div>
+      </section>
+
+      <footer class="footer">
+        Discord 陪玩业务 Bot 最小原型设计开发文档 · v0.7 · Startup Business Rules + Shared API + Discord Role Mapping · 本文档描述计划中的 prototype 边界，不代表功能已经实现，也不作为支付合规或正式生产 SLA 承诺。
+      </footer>
+    </main>
+  </div>
+</body>
+</html>
