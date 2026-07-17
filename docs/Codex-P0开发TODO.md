@@ -177,15 +177,16 @@ workspace/
   - 禁止扩展：不把价格、状态机、资金或最终权限规则写入 Sapphire Piece；不在打开的 Modal 内实现级联选择。
   - 进度记录（2026-07-17）：已完成 `@blackcat/bot/service-center`、`HttpBotApiClient`、Discord UI spec renderer、`/service-center` 公共入口回复、`service-center-buttons` / `order-selects` / `service-center-modals` 三个 Sapphire interaction-handler piece。覆盖公共入口只展示 `创建订单` 和 `我的服务中心` 且不公开余额；绑定 Modal 单个一次性绑定码 Text Input；备注 Modal 单个可选 Text Input 并携带订单版本；私密频道权限计划拒绝 `@everyone`，允许客户/Bot/客服 role，陪玩接单前不可见；订单面板用消息 String Select 完成游戏/服务/区服/时长选择，不在打开的 Modal 内级联，不泄露陪玩结算或余额；custom_id parser 只承载安全路由元数据；Bot flow 只通过统一 API client 调用 `createBinding`、`createOrder`、`getOrder`、`updateOrder`，并携带 Bot token、Discord Actor Context、interaction id 和 idempotency key。`npx vitest run tests/m1-us-04-bot.spec.ts` 15/15 通过，`npm run typecheck -w @blackcat/bot`、`npm run typecheck`、`npm run pieces -w @blackcat/bot`、`npm test` 109/109 通过。Discord credential 暂未提供，真实测试 Server E2E 未执行；AT-ORD-003 的完整资金预留重复提交仍属于 M1-US-05 `submitOrder` API。证据：`evidence/P0/M1-US-04/summary.md`。
 
-- [ ] **M1-US-05：订单提交与资金预留**
+- [x] **M1-US-05：订单提交与资金预留**
   - 前置依赖：M0-US-04;M1-US-03;M0-US-05
   - 责任类型：backend_api
-  - 实现结果：提交时原子复核价格和 Provider 余额，创建订单 FundReservation，写外部交易镜像并迁移到 PENDING_DISPATCH；UNKNOWN 锁定并对账。
+  - 实现结果：提交时复核价格和 Provider 余额，创建 provider hold-backed 订单 FundReservation，并迁移到 PENDING_DISPATCH；提交阶段不创建消费或 debit external transaction，Provider hold ref 通过 FundReservation 与审计追踪，异常分支释放 hold 或返回可恢复 Provider timeout。
   - 执行步骤：读取合同 → 写失败测试 → 最小实现 → 运行相关回归 → 更新证据
   - 关键接口：submitOrder;handlePaymentWebhook
   - 验收用例：AT-RES-001;AT-REC-002;AT-ORD-004
   - 完成定义：Provider Mock 全分支、数据库事务和 API 集成测试通过；审计可追溯 reservation 与 external_ref。
   - 禁止扩展：不直接在提交时完成消费；不建可手工编辑 pending 字段。
+  - 进度记录（2026-07-17）：已完成 `submitOrder` API、in-memory/Postgres order store 提交事务、Provider hold 预留、timeout-after-commit `getHold(IDEMPOTENCY_KEY)` 恢复、stable reservation id、目录快照复核、Postgres commit-time `user_currency_locks` 锁与 active reservations 重算、Postgres commit-time 目录快照锁读复核、commit 失败后的 `releaseHold` 补偿、`SUBMITTED` event next sequence、成功审计 before/after snapshot、以及 `handlePaymentWebhook` raw octet/json 验签与进程内 event id 去重。提交响应符合 `OrderReservationEnvelope`，不返回订单内部对象、FundReservation 详情或交易列表；提交阶段不创建 debit/consumption。`npx vitest run tests/m1-us-05-api.spec.ts tests/m1-us-05-db.spec.ts tests/m1-us-05-webhook.spec.ts` 17/17 通过，`npm test` 126/126 通过，`npm run typecheck`、`npm run db:validate`、`npm run db:verify:migration` 均通过。证据：`evidence/P0/M1-US-05/summary.md`。Webhook 当前仅验签、拒绝重放、去重和 acknowledgement，真实业务应用与持久 webhook 去重留给后续扣款/退款 Story。
 
 - [ ] **M1-US-06：私密个人服务中心**
   - 前置依赖：M1-US-02;M1-US-03;M1-US-04
