@@ -92,7 +92,7 @@ workspace/
   - 禁止扩展：不建本地余额账本，不提供财务、审计或订单事件硬删除。
   - 进度记录（2026-07-17）：已建立 `database` workspace、同步 canonical `database/prisma/schema.prisma`、生成完整空库 baseline migration、同步 `database/seed/seed-data.csv`、新增不可硬删除/保护金额字段策略 helper 和 M0-US-02 合同测试；`npm run m0:verify` 14/14 通过，`npm run db:validate` 通过，`npm run typecheck` 通过，`npm audit --audit-level=moderate` 0 漏洞；本机临时 PostgreSQL 空库 apply 通过，生成 47 张表、3 个抽样关键约束和 7 个抽样 guard triggers，并验证 active slot 伪造、无来源预留、缺少服务开始事件、超额结算、非法预留状态迁移、预留部分结算却进入终态、已激活预留直接 FAILED、审计硬删除、金额覆盖、礼物价格覆盖、Guild 配置事件更新权限和 append-only update 均被拒绝；已补充 P0 首批 trigger guard 名称与实现；follow-up code review 通过。证据：`evidence/P0/M0-US-02/summary.md`。
 
-- [ ] **M0-US-03：统一鉴权、Actor Context、幂等与审计中间件**
+- [x] **M0-US-03：统一鉴权、Actor Context、幂等与审计中间件**
   - 前置依赖：M0-US-01;M0-US-02
   - 责任类型：backend_security
   - 实现结果：实现 Bot 服务 Token、可信 Actor Header、request_id、Idempotency-Key、权限策略入口、拒绝审计和只追加 audit_logs。
@@ -101,9 +101,9 @@ workspace/
   - 验收用例：AT-AUTH-001;AT-RBAC-001;AT-AUD-001
   - 完成定义：鉴权、幂等、越权和审计集成测试通过；日志脱敏；所有写端点接入中间件。
   - 禁止扩展：不在 Bot Precondition 或 React 前端复制最终 RBAC。
-  - 进度记录（2026-07-17）：已实现 API 安全中间件、Bot Service Token 校验、可信 Actor Context 解析、累积权限入口、写操作 Idempotency-Key、按 client/operation/actor/key 作用域的原子占位与重复请求回放、冲突检测、成功/拒绝审计和 M0 安全探针路由；`npx vitest run tests/m0-us-03.spec.ts` 8/8 通过，`npm run m0:verify` 22/22 通过，`npm run typecheck`、`npm run db:validate`、`npm run db:verify:migration`、`npm audit --audit-level=moderate` 均通过。证据：`evidence/P0/M0-US-03/summary.md`。未勾选完成原因：code review 正在进行中；真实业务端点接入将在后续 Story 中完成。
+  - 进度记录（2026-07-17）：已实现 API 安全中间件、Bot Service Token 校验、可信 Actor Context 解析、累积权限入口、写操作 Idempotency-Key 合同校验、按 client/operation/actor/key 作用域的原子占位与成功/失败重复请求回放、冲突检测、成功/拒绝/失败审计、route 级 before/after snapshot 入口、transactional staged write `commit(successAuditRecord)` contract 和 M0 安全探针路由；`npx vitest run tests/m0-us-03.spec.ts` 15/15 通过，`npm run m0:verify` 29/29 通过，`npm run typecheck`、`npm run db:validate`、`npm run db:verify:migration`、`npm audit --audit-level=moderate` 均通过。证据：`evidence/P0/M0-US-03/summary.md`。首轮 code review 的 Important 项已修复并补充回归；final narrow review 通过，Critical none，Important none。真实 side-effecting write route 必须使用 staged `{ data, commit(successAuditRecord) }` contract。
 
-- [ ] **M0-US-04：第三方资金适配契约与可控 Mock**
+- [x] **M0-US-04：第三方资金适配契约与可控 Mock**
   - 前置依赖：M0-US-02;M0-US-03
   - 责任类型：integration_backend
   - 实现结果：实现 adapter-contract.yaml 的 11 个标准操作：discoverCapabilities、resolveUser、getProviderBalance、createHold、getHold、captureHold、releaseHold、createReservationDebit、createRefund、getTransaction、verifyWebhook；提供可编程 Mock、稳定幂等键和外部交易镜像。
@@ -112,6 +112,7 @@ workspace/
   - 验收用例：AT-WHK-001;AT-REC-001;AT-REC-003
   - 完成定义：11 操作契约测试及全部结果分支通过；能力探测、UNKNOWN 恢复、验签与重放测试通过；凭证仅由 Secret 注入。
   - 禁止扩展：不保留任何旧接口别名；不实现充值页或本地余额。
+  - 进度记录（2026-07-17）：已实现 `@blackcat/api/payment-adapter` in-memory mock facade，覆盖 `discoverCapabilities`、`resolveUser`、`getProviderBalance`、`createHold`、`getHold`、`captureHold`、`releaseHold`、`createReservationDebit`、`createRefund`、`getTransaction`、`verifyWebhook` 11 个操作；支持 native/fallback capability profile、providerBalance-only 响应、stable idempotency replay/conflict、hold TTL gate、timeout-after-commit recovery、partial capture/release、native hold capture transaction mirror/refund、modeled reservation binding/version 校验、money/date runtime invariant、insufficient funds、refund cap、webhook signature/timestamp/schema/replay/dedup；`npx vitest run tests/m0-us-04.spec.ts` 9/9 通过，`npm run m0:verify` 38/38 通过，`npm run typecheck`、`npm run db:validate`、`npm run db:verify:migration`、`npm audit --audit-level=moderate` 均通过。证据：`evidence/P0/M0-US-04/summary.md`。首轮 code review 的 Critical/Important 项已修复并补充回归；follow-up code review 通过，Critical none，Important none。
 
 - [ ] **M0-US-05：Outbox/Job 运行器与结构化可观测性**
   - 前置依赖：M0-US-02;M0-US-03
@@ -122,6 +123,7 @@ workspace/
   - 验收用例：AT-CHN-003;AT-AUD-003
   - 完成定义：并发领取、退避、失败和恢复测试通过；失败 Job 可受权重试并留审计。
   - 禁止扩展：不引入 Redis/BullMQ，不承诺无限重试或复杂 SLA。
+  - 进度记录（2026-07-17）：已实现 `@blackcat/api/outbox` 的 Outbox store/runner contract、in-memory store、worker lock claim、attempt/version 增量、backoff、terminal failed、success completion、structured logs、metrics hooks 和 `retryJob` 授权手工重试审计；`npx vitest run tests/m0-us-05.spec.ts` 4/4 通过，`npm run m0:verify` 42/42 通过，`npm run typecheck`、`npm run db:validate`、`npm run db:verify:migration`、`npm audit --audit-level=moderate` 均通过。证据：`evidence/P0/M0-US-05/summary.md`。未勾选完成原因：code review 正在进行中。
 
 ### 完成门禁
 - [ ] 五个 M0 Story 的完成定义全部满足；本地启动、健康/就绪、鉴权、Provider Mock、迁移和 Job 恢复证据可复验。
